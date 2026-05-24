@@ -1,17 +1,17 @@
 /* ============================================================
-   Japan 2026 — Travel Itinerary App
+   Raahi — Japan 2026 Travel Itinerary
    Data sourced from PDF itinerary + Google Sheet attractions
    ============================================================ */
 
 // ── City theme config ──
 const CITIES = {
-  transit:    { name: 'In Transit',  color: '#78716c', bg: '#f5f0e8' },
-  tokyo:      { name: 'Tokyo',      color: '#1e3a5f', bg: '#e8eef5' },
-  fuji:       { name: 'Mt. Fuji',   color: '#4d7c0f', bg: '#f0f5e8' },
-  kyoto:      { name: 'Kyoto',      color: '#c53d2d', bg: '#fef2f0' },
-  kobe:       { name: 'Kobe',       color: '#b8860b', bg: '#fdf6e3' },
-  hiroshima:  { name: 'Hiroshima',  color: '#0d6e6e', bg: '#e6f5f5' },
-  home:       { name: 'Home',       color: '#78716c', bg: '#f5f0e8' },
+  transit:    { name: 'In Transit',  color: '#78716c', bg: '#f5f0e8', emoji: '✈️' },
+  tokyo:      { name: 'Tokyo',      color: '#1e3a5f', bg: '#e8eef5', emoji: '🗼' },
+  fuji:       { name: 'Mt. Fuji',   color: '#4d7c0f', bg: '#f0f5e8', emoji: '🗻' },
+  kyoto:      { name: 'Kyoto',      color: '#c53d2d', bg: '#fef2f0', emoji: '⛩️' },
+  kobe:       { name: 'Kobe',       color: '#b8860b', bg: '#fdf6e3', emoji: '🌉' },
+  hiroshima:  { name: 'Hiroshima',  color: '#0d6e6e', bg: '#e6f5f5', emoji: '🕊️' },
+  home:       { name: 'Home',       color: '#78716c', bg: '#f5f0e8', emoji: '🏠' },
 };
 
 // ── Route overview data ──
@@ -58,7 +58,7 @@ const DAYS = [
     attractions: [
       'Easy arrival meal',
       'Neighborhood walk near hotel',
-      'Ikebukuro dining (department stores, ramen, themed cafés)',
+      'Ikebukuro dining (department stores, ramen, themed cafes)',
     ],
     events: [],
     links: [
@@ -83,7 +83,7 @@ const DAYS = [
     ],
     events: [
       'Tokyo Skytree',
-      'Asakusa (Sensō-ji Temple, Nakamise Street)',
+      'Asakusa (Senso-ji Temple, Nakamise Street)',
     ],
     links: [],
   },
@@ -109,7 +109,7 @@ const DAYS = [
     ],
     events: [],
     links: [
-      { label: 'Hyatt', url: 'https://www.hyatt.com/hotel/japan/hotel-toranomon-hills/tyohy' },
+      { label: 'Hyatt', url: 'https://www.hyatt.com/unbound-collection/en-US/tyoub-hotel-toranomon-hills' },
     ],
   },
   {
@@ -190,8 +190,8 @@ const DAYS = [
     attractions: [
       'Kinkaku-ji (Golden Pavilion)',
       'Kiyomizu-dera',
-      'Nijō Castle',
-      'Sanjūsangen-dō',
+      'Nijo Castle',
+      'Sanjusangen-do',
       'Gion district',
       'Arashiyama Bamboo Grove (PM)',
     ],
@@ -221,7 +221,7 @@ const DAYS = [
       'SWE/SSO Friendship Concert at Akashi Civic Hall (with Takigawa Daini HS)',
     ],
     links: [
-      { label: 'IHG', url: 'https://www.ihg.com/crowneplaza/hotels/us/en/kobe/osakb/hoteldetail' },
+      { label: 'IHG', url: 'https://www.ihg.com/crowneplaza/hotels/us/en/hyogo/osakb/hoteldetail' },
     ],
   },
   {
@@ -372,7 +372,7 @@ const BOOKINGS = [
       ['Phone', '+81-3-6834-5678'],
       ['Cost', '$862.20'],
     ],
-    url: 'https://www.hyatt.com/hotel/japan/hotel-toranomon-hills/tyohy',
+    url: 'https://www.hyatt.com/unbound-collection/en-US/tyoub-hotel-toranomon-hills',
   },
   {
     type: 'Hotel · Mt. Fuji', icon: 'hotel',
@@ -415,7 +415,7 @@ const BOOKINGS = [
       ['Address', '1-Chome, Kitano-cho, Chuo-ku, Kobe'],
       ['Cost', '$246.40'],
     ],
-    url: 'https://www.ihg.com/crowneplaza/hotels/us/en/kobe/osakb/hoteldetail',
+    url: 'https://www.ihg.com/crowneplaza/hotels/us/en/hyogo/osakb/hoteldetail',
   },
   {
     type: 'Hotel · Hiroshima', icon: 'hotel',
@@ -447,24 +447,12 @@ const BOOKINGS = [
   },
 ];
 
-// ── Map links ──
-const MAP_LINKS = [
-  { city: 'Tokyo', key: 'tokyo' },
-  { city: 'Mt. Fuji & Kawaguchiko', key: 'fuji' },
-  { city: 'Kyoto', key: 'kyoto' },
-  { city: 'Kobe', key: 'kobe' },
-  { city: 'Hiroshima', key: 'hiroshima' },
-  { city: 'Miyajima Island', key: 'hiroshima' },
-];
-
 // ── DOM refs ──
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
-const routeStrip   = $('#route-strip');
 const dayList      = $('#day-list');
 const bookingGrid  = $('#booking-grid');
-const mapLinksEl   = $('#map-links');
 const addForm      = $('#add-form');
 const addDay       = $('#add-day');
 const askForm      = $('#ask-form');
@@ -473,6 +461,7 @@ const askAnswer    = $('#ask-answer');
 const notifyBtn    = $('#notify-btn');
 const notifyStatus = $('#notify-status');
 const countdownEl  = $('#countdown');
+const stickyNav    = $('#sticky-nav');
 
 // ── Formatters ──
 const fmtDate  = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -497,7 +486,8 @@ const ICONS = {
   train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"/><path d="M4 11h16M12 3v8M8 19l-2 3M16 19l2 3M9 15h.01M15 15h.01"/></svg>',
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
   arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>',
-  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  mapPin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
 };
 
 // ── Google Maps URL helper ──
@@ -505,20 +495,61 @@ function mapsUrl(query) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query + ', Japan')}`;
 }
 
-// ===== RENDER: Route Strip =====
-function renderRoute() {
-  routeStrip.innerHTML = ROUTE.map((stop) => {
+// ===== RENDER: City Navigation =====
+function renderCityNav() {
+  const cityNav = $('#city-nav');
+  cityNav.innerHTML = ROUTE.map((stop, i) => {
     const c = CITIES[stop.key];
+    const dayCount = DAYS.filter(d => d.cityKey === stop.key).length;
+    const hotels = [...new Set(
+      DAYS.filter(d => d.cityKey === stop.key && d.hotel?.name)
+        .map(d => d.hotel.name)
+    )];
+    const hotelPreview = hotels.length ? hotels[0] : '';
+
     return `
-      <div class="route-stop" style="--stop-color:${c.color}; --stop-bg:${c.bg}">
-        <span class="stop-city">${stop.city}</span>
-        <span class="stop-dates">${stop.dates}</span>
-        <span class="stop-nights">${stop.nights} night${stop.nights > 1 ? 's' : ''}</span>
-      </div>`;
+      <button class="city-card" data-city="${stop.key}" data-idx="${i}" style="--city-color:${c.color}; --city-bg:${c.bg}">
+        <span class="city-emoji">${c.emoji}</span>
+        <div class="city-card-info">
+          <h3>${stop.city}</h3>
+          <span class="city-dates">${stop.dates}</span>
+          <span class="city-meta">${stop.nights}n · ${dayCount} day${dayCount > 1 ? 's' : ''}</span>
+          ${hotelPreview ? `<span class="city-hotel">${hotelPreview}</span>` : ''}
+        </div>
+        <a class="city-map-link" href="${mapsUrl(stop.city)}" target="_blank" rel="noreferrer" title="Open in Google Maps" onclick="event.stopPropagation()">
+          ${ICONS.mapPin}
+        </a>
+      </button>`;
   }).join('');
+
+  // Click handler: scroll to first day of that city
+  cityNav.querySelectorAll('.city-card').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      if (e.target.closest('.city-map-link')) return;
+      const cityKey = btn.dataset.city;
+      const firstDayIdx = DAYS.findIndex(d => d.cityKey === cityKey);
+      if (firstDayIdx >= 0) {
+        // Make sure "all" filter is active
+        const allBtn = $('.filter-btn[data-filter="all"]');
+        if (allBtn && !allBtn.classList.matches?.('active')) {
+          $$('.filter-btn').forEach(b => b.classList.remove('active'));
+          allBtn.classList.add('active');
+          renderDays('all');
+        }
+        requestAnimationFrame(() => {
+          const cards = $$('.day-card');
+          const target = [...cards].find(c => parseInt(c.dataset.idx) === firstDayIdx);
+          if (target) {
+            target.classList.add('expanded');
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        });
+      }
+    });
+  });
 }
 
-// ===== RENDER: Day Cards =====
+// ===== RENDER: Day Cards (uniform height, expandable) =====
 function renderDays(filter = 'all') {
   dayList.innerHTML = DAYS.map((day, idx) => {
     const d = parseDate(day.date);
@@ -534,61 +565,97 @@ function renderDays(filter = 'all') {
     if (filter === 'explore' && !isExplore && hasTransport) return '';
     if (filter === 'flexible' && !isFlex) return '';
 
-    // Build hotel items
-    const hotelItems = [];
-    if (day.hotel) {
-      hotelItems.push(day.hotel.name);
-      if (day.hotel.room) hotelItems.push(day.hotel.room);
-      if (day.hotel.note) hotelItems.push(day.hotel.note);
-      if (day.hotel.address) hotelItems.push(day.hotel.address);
-    } else {
-      hotelItems.push('In transit');
-    }
+    // Counts
+    const actCount = day.attractions.length + day.events.length + custom.length;
+    const hotelName = day.hotel?.name || 'In transit';
+    const previewItems = [...day.attractions.slice(0, 2)];
+    const previewText = previewItems.join(' · ');
 
-    // Build attraction items (merge attractions + events + custom)
-    const allAttractions = [
-      ...day.attractions.map(a => renderItem(a)),
-      ...day.events.map(e => renderItem(e, 'event')),
-      ...custom.map(c => renderItem(`${c.title}${c.notes ? ' — ' + c.notes : ''}`, 'added')),
-    ];
-
-    // Links
-    const cityName = c.name === 'In Transit' ? 'Route' : c.name;
-    const linksHtml = [
-      `<a class="day-link" href="${mapsUrl(cityName)}" target="_blank" rel="noreferrer">${ICONS.pin} ${cityName}</a>`,
-      ...day.links.map(l => `<a class="day-link" href="${l.url}" target="_blank" rel="noreferrer">${ICONS.arrow} ${l.label}</a>`),
+    // Build activity list with Google Maps links
+    const activitiesHtml = [
+      ...day.attractions.map(a => {
+        const isGeneric = /travel day|home arrival|airport|buffer|no transfer/i.test(a);
+        return isGeneric
+          ? `<li>${a}</li>`
+          : `<li><a href="${mapsUrl(a)}" target="_blank" rel="noreferrer">${a} <span class="maps-hint">${ICONS.mapPin}</span></a></li>`;
+      }),
+      ...day.events.map(e =>
+        `<li class="event"><a href="${mapsUrl(e)}" target="_blank" rel="noreferrer">${e} <span class="maps-hint">${ICONS.mapPin}</span></a></li>`
+      ),
+      ...custom.map(c =>
+        `<li class="added">${c.title}${c.notes ? ' — ' + c.notes : ''}</li>`
+      ),
     ].join('');
 
+    // Hotel section
+    const hotelHtml = day.hotel ? `
+      <div class="detail-block detail-stay">
+        <h4>Stay</h4>
+        <p class="detail-primary">${day.hotel.name}</p>
+        ${day.hotel.room ? `<p class="detail-secondary">${day.hotel.room}</p>` : ''}
+        ${day.hotel.address ? `<p class="detail-secondary"><a href="${mapsUrl(day.hotel.name + ', ' + (day.hotel.address || ''))}" target="_blank" rel="noreferrer">${day.hotel.address} <span class="maps-hint">${ICONS.mapPin}</span></a></p>` : ''}
+        ${day.hotel.checkin ? `<p class="detail-secondary">Check-in ${day.hotel.checkin} · Out ${day.hotel.checkout}</p>` : ''}
+        ${day.hotel.conf ? `<p class="detail-secondary">Conf: ${day.hotel.conf}</p>` : ''}
+        ${day.hotel.note ? `<p class="detail-note">${day.hotel.note}</p>` : ''}
+      </div>` : '';
+
+    // Transport section
+    const transportHtml = day.transport.length ? `
+      <div class="detail-block detail-travel">
+        <h4>Travel</h4>
+        <ul>${day.transport.map(t => `<li>${t}</li>`).join('')}</ul>
+      </div>` : '';
+
+    // Links
+    const linksHtml = day.links.map(l =>
+      `<a class="day-link" href="${l.url}" target="_blank" rel="noreferrer">${ICONS.arrow} ${l.label}</a>`
+    ).join('');
+
     return `
-      <article class="day-card" style="--city-color:${c.color}; --city-bg:${c.bg}">
+      <article class="day-card" data-idx="${idx}" data-city="${day.cityKey}" style="--city-color:${c.color}; --city-bg:${c.bg}">
         <div class="day-rail">
           <span class="day-weekday">${fmtWkday.format(d)}</span>
           <span class="day-num">${fmtDay.format(d)}</span>
           <span class="day-month">${fmtMonth.format(d)}</span>
         </div>
-        <div class="day-body">
-          <div class="day-header">
-            <h3 class="day-title">${day.title}</h3>
-            <span class="day-city-pill" style="background:${c.bg}; color:${c.color}">${c.name}</span>
+        <div class="day-content">
+          <div class="day-summary">
+            <div class="day-header">
+              <h3 class="day-title">${day.title}</h3>
+              <span class="day-city-pill" style="background:${c.bg}; color:${c.color}">${c.name}</span>
+            </div>
+            <div class="day-preview">
+              <span class="preview-text">${actCount} activit${actCount !== 1 ? 'ies' : 'y'} · ${hotelName}</span>
+              <span class="expand-icon">${ICONS.chevron}</span>
+            </div>
           </div>
-          <div class="day-grid">
-            ${renderBlock('Activities', allAttractions)}
-            ${renderBlock('Stay', hotelItems.map(i => renderItem(i)))}
-            ${renderBlock('Travel', day.transport.length ? day.transport.map(t => renderItem(t)) : [renderItem('No transfers', 'empty')])}
+          <div class="day-details">
+            <div class="day-detail-grid">
+              <div class="detail-block detail-activities">
+                <h4>Activities</h4>
+                <ul class="activity-list">${activitiesHtml || '<li class="empty">No activities planned yet</li>'}</ul>
+              </div>
+              ${hotelHtml}
+              ${transportHtml}
+            </div>
+            <div class="day-links">
+              <a class="day-link" href="${mapsUrl(c.name === 'In Transit' || c.name === 'Home' ? 'Tokyo' : c.name)}" target="_blank" rel="noreferrer">${ICONS.pin} ${c.name === 'In Transit' || c.name === 'Home' ? 'Tokyo' : c.name} in Maps</a>
+              ${linksHtml}
+            </div>
           </div>
-          <div class="day-links">${linksHtml}</div>
         </div>
       </article>`;
   }).join('');
-}
 
-function renderItem(text, cls = '') {
-  return `<li class="${cls}">${text}</li>`;
-}
+  // Expand/collapse click handlers
+  dayList.querySelectorAll('.day-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      card.classList.toggle('expanded');
+    });
+  });
 
-function renderBlock(title, items) {
-  const content = items.length ? items.join('') : renderItem('No details yet', 'empty');
-  return `<section class="day-block"><h4>${title}</h4><ul>${content}</ul></section>`;
+  highlightToday();
 }
 
 // ===== RENDER: Bookings =====
@@ -615,19 +682,6 @@ function renderBookings() {
   }).join('');
 }
 
-// ===== RENDER: Map Links =====
-function renderMapLinks() {
-  mapLinksEl.innerHTML = MAP_LINKS.map((m) => {
-    const c = CITIES[m.key];
-    return `
-      <a class="map-link" href="${mapsUrl(m.city)}" target="_blank" rel="noreferrer">
-        <span class="map-dot" style="background:${c.color}"></span>
-        ${m.city}
-        ${ICONS.arrow}
-      </a>`;
-  }).join('');
-}
-
 // ===== RENDER: Day Selector for Quick Add =====
 function renderDayOptions() {
   addDay.innerHTML = DAYS.map((day, idx) =>
@@ -639,7 +693,7 @@ function renderDayOptions() {
 function getTripStatus() {
   const now = new Date();
   const tripStart = new Date('2026-06-09T00:00:00-07:00');
-  const tripEnd = new Date('2026-06-24T00:00:00-07:00'); // day after last day
+  const tripEnd = new Date('2026-06-24T00:00:00-07:00');
 
   if (now < tripStart) {
     return { phase: 'before', daysUntil: Math.ceil((tripStart - now) / 86400000) };
@@ -648,7 +702,6 @@ function getTripStatus() {
     return { phase: 'after' };
   }
 
-  // During trip — find which day
   const dayIndex = DAYS.findIndex(d => {
     const dayDate = parseDate(d.date);
     const nextDay = new Date(dayDate); nextDay.setDate(nextDay.getDate() + 1);
@@ -682,15 +735,13 @@ function highlightToday() {
   const status = getTripStatus();
   if (status.phase !== 'during') return;
 
-  // Wait for cards to render, then highlight
   requestAnimationFrame(() => {
     const cards = document.querySelectorAll('.day-card');
     if (!cards[status.dayIndex]) return;
 
-    // Add "today" styling
     cards[status.dayIndex].classList.add('is-today');
+    cards[status.dayIndex].classList.add('expanded');
 
-    // Insert TODAY badge in the day header
     const header = cards[status.dayIndex].querySelector('.day-header');
     if (header && !header.querySelector('.today-badge')) {
       const badge = document.createElement('span');
@@ -699,7 +750,6 @@ function highlightToday() {
       header.appendChild(badge);
     }
 
-    // If there's a next day, mark it
     if (cards[status.dayIndex + 1]) {
       cards[status.dayIndex + 1].classList.add('is-next');
       const nextHeader = cards[status.dayIndex + 1].querySelector('.day-header');
@@ -711,11 +761,45 @@ function highlightToday() {
       }
     }
 
-    // Auto-scroll to today's card (smooth, with a slight delay)
     setTimeout(() => {
       cards[status.dayIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 600);
   });
+}
+
+// ===== STICKY NAV =====
+function initStickyNav() {
+  const hero = $('#top');
+  if (!hero || !stickyNav) return;
+
+  const observer = new IntersectionObserver(([entry]) => {
+    stickyNav.classList.toggle('visible', !entry.isIntersecting);
+  }, { threshold: 0, rootMargin: '-60px 0px 0px 0px' });
+
+  observer.observe(hero);
+
+  // Active link tracking
+  const sections = ['route', 'itinerary', 'bookings', 'ask'];
+  const snavLinks = stickyNav.querySelectorAll('.snav-link');
+
+  function updateActive() {
+    let current = sections[0];
+    for (const id of sections) {
+      const el = document.getElementById(id);
+      if (el && el.getBoundingClientRect().top <= 120) {
+        current = id;
+      }
+    }
+    snavLinks.forEach(link => {
+      link.classList.toggle('active', link.dataset.section === current);
+    });
+  }
+
+  let scrollTimer;
+  window.addEventListener('scroll', () => {
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(updateActive, 60);
+  }, { passive: true });
 }
 
 // ===== FILTERS =====
@@ -743,14 +827,9 @@ addForm.addEventListener('submit', (e) => {
 
   const activeFilter = $('.filter-btn.active')?.dataset.filter || 'all';
   renderDays(activeFilter);
-
-  // Scroll to the day card
-  const cards = $$('.day-card:not(.hidden)');
-  const target = [...cards].find(c => c.querySelector('.day-num'));
-  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 
-// ===== Q&A =====
+// ===== Q&A ENGINE (improved) =====
 askForm.addEventListener('submit', (e) => {
   e.preventDefault();
   askAnswer.textContent = answerQuestion(askInput.value);
@@ -760,8 +839,38 @@ function answerQuestion(raw) {
   const q = raw.toLowerCase().trim();
   if (!q) return 'Ask me about cities, travel days, flexible time, hotels, or suggestions.';
 
+  // How many days/nights in [city]
+  if (q.match(/how many|how long|number of/)) {
+    const city = findCity(q);
+    if (city) {
+      const cityDays = DAYS.filter(d => d.cityKey === city);
+      const routeStops = ROUTE.filter(r => r.key === city);
+      const totalNights = routeStops.reduce((sum, r) => sum + r.nights, 0);
+      const dateList = cityDays.map(d => fmtDate.format(parseDate(d.date))).join(', ');
+      return `You have ${cityDays.length} day${cityDays.length > 1 ? 's' : ''} and ${totalNights} night${totalNights > 1 ? 's' : ''} in ${CITIES[city].name}: ${dateList}.`;
+    }
+    if (q.includes('city') || q.includes('cities') || q.includes('stop')) {
+      return 'The trip covers 5 cities: Tokyo (5 days/4+1 nights), Mt. Fuji (1 day/1 night), Kyoto (2 days/2 nights), Kobe (2 days/2 nights), Hiroshima (3 days/3 nights).';
+    }
+    return 'The trip is 15 days total (Jun 9-23). Ask about a specific city for details.';
+  }
+
+  // What's on day N
+  const dayMatch = q.match(/(?:day|#)\s*(\d+)/);
+  if (dayMatch && !q.includes('how many')) {
+    const dayNum = parseInt(dayMatch[1]);
+    const day = DAYS.find(d => d.dayNum === dayNum);
+    if (day) {
+      const c = CITIES[day.cityKey];
+      const acts = [...day.attractions, ...day.events].slice(0, 4).join(', ');
+      const hotel = day.hotel?.name || 'In transit';
+      return `Day ${dayNum} (${fmtDate.format(parseDate(day.date))}): ${day.title} in ${c.name}. Hotel: ${hotel}. Activities: ${acts}.`;
+    }
+    return `Day ${dayNum} doesn't exist. The trip is days 1–15.`;
+  }
+
   // Confirmation lookups
-  if (q.includes('confirm')) {
+  if (q.includes('confirm') || q.includes('reservation') || q.includes('booking number')) {
     const terms = [
       ['flight', 'United'], ['united', 'United'], ['aloft', 'Aloft'], ['ginza', 'Aloft'],
       ['toranomon', 'Toranomon'], ['ubuya', 'UBUYA'], ['fuji', 'UBUYA'],
@@ -790,54 +899,87 @@ function answerQuestion(raw) {
     }).join(' | ') || 'No check-in info found.';
   }
 
+  // What hotel in [city]
+  if (q.match(/what hotel|where.*stay|where.*sleep|which hotel|hotel in|where.*hotel/)) {
+    const city = findCity(q);
+    if (city) {
+      const hotels = [...new Set(
+        DAYS.filter(d => d.cityKey === city && d.hotel?.name)
+          .map(d => d.hotel.name)
+      )];
+      if (hotels.length) {
+        return `In ${CITIES[city].name}: ${hotels.join(', then ')}.`;
+      }
+    }
+    // Show all hotels
+    const allHotels = BOOKINGS.filter(b => b.icon === 'hotel')
+      .map(b => `${b.title} (${b.details.find(([k]) => k === 'Dates')?.[1] || ''})`)
+      .join(' | ');
+    return allHotels || 'No hotel info found.';
+  }
+
   // Travel / transport
-  if (q.includes('leave') || q.includes('transfer') || q.includes('train') || q.includes('flight') || q.includes('shinkansen')) {
+  if (q.includes('leave') || q.includes('transfer') || q.includes('train') || q.includes('flight') || q.includes('shinkansen') || q.includes('travel')) {
     const travelDays = DAYS.filter(d => d.transport.length > 0);
     const city = findCity(q);
     const results = city ? travelDays.filter(d => d.cityKey === city || d.title.toLowerCase().includes(city)) : travelDays;
-    return results.map(d => `${fmtDate.format(parseDate(d.date))}: ${d.transport.join(', ')}`).join(' | ') || 'No travel details found.';
+    return results.map(d => `${fmtDate.format(parseDate(d.date))}: ${d.transport.slice(0, 2).join(', ')}`).join(' | ') || 'No travel details found.';
   }
 
   // City query
   const city = findCity(q);
   if (city) {
     const matches = DAYS.filter(d => d.cityKey === city);
-    return matches.map(d => `${fmtDate.format(parseDate(d.date))}: ${d.title} — ${d.attractions.slice(0,3).join(', ')}`).join(' | ') || `No days found for "${city}".`;
+    return matches.map(d => `${fmtDate.format(parseDate(d.date))}: ${d.title} — ${d.attractions.slice(0, 3).join(', ')}`).join(' | ') || `No days found for "${city}".`;
   }
 
   // Flexible / open
-  if (q.includes('flex') || q.includes('open') || q.includes('free')) {
-    const flexDays = DAYS.filter(d => d.attractions.some(a => /flexible|pending|add|buffer|optional/i.test(a)));
+  if (q.includes('flex') || q.includes('open') || q.includes('free') || q.includes('buffer')) {
+    const flexDays = DAYS.filter(d =>
+      d.attractions.some(a => /flexible|pending|add|buffer|optional|free|open/i.test(a)) || d.attractions.length <= 2
+    );
     return flexDays.length
       ? 'Flexible days: ' + flexDays.map(d => `${fmtDate.format(parseDate(d.date))} (${d.title})`).join(', ')
       : 'All days currently have planned activities.';
   }
 
   // Suggest
-  if (q.includes('suggest') || q.includes('recommend') || q.includes('idea') || q.includes('kid')) {
-    return 'Suggestions: Keep one anchor activity per day plus a flexible backup. In Kyoto, Fushimi Inari is best early morning. Miyajima depends on tides — check the schedule. For rainy days in Tokyo, try TeamLab Borderless or a depachika (department store basement food hall).';
+  if (q.includes('suggest') || q.includes('recommend') || q.includes('idea') || q.includes('kid') || q.includes('tip')) {
+    return 'Suggestions: Keep one anchor activity per day plus a flexible backup. In Kyoto, Fushimi Inari is best early morning. Miyajima depends on tides. For rainy days in Tokyo, try TeamLab Borderless or a depachika food hall.';
   }
 
-  // Hotel
+  // Hotel (generic)
   if (q.includes('hotel') || q.includes('stay') || q.includes('where')) {
     return DAYS.filter(d => d.hotel).map(d => `${fmtDate.format(parseDate(d.date))}: ${d.hotel.name}`).join(' | ');
   }
 
   // Cost
-  if (q.includes('cost') || q.includes('price') || q.includes('budget') || q.includes('spend')) {
-    return 'Costs: Flights = 805,400 miles + $101.06 | Toranomon Hills = $862.20 | UBUYA = $750.59 | Ace Kyoto = $660.61 | ANA Kobe = $246.40 | Aloft Ginza = 113K points | Hilton Hiroshima = 177K points. Total cash: ~$2,519.80 + miles/points.';
+  if (q.includes('cost') || q.includes('price') || q.includes('budget') || q.includes('spend') || q.includes('money')) {
+    return 'Costs: Flights = 805,400 miles + $101.06 | Toranomon Hills = $862.20 | UBUYA = $750.59 | Ace Kyoto = $660.61 | ANA Kobe = $246.40 | Aloft Ginza = 113K pts | Hilton Hiroshima = 177K pts. Total cash: ~$2,519.80 + miles/points.';
   }
 
-  return 'I can help with: hotel confirmations, check-in times, travel days, city itineraries, flexible days, costs, and suggestions. Try asking about a specific city or booking.';
+  // What / when
+  if (q.includes('when') || q.includes('what time') || q.includes('arrive') || q.includes('depart')) {
+    if (q.includes('arrive') || q.includes('land')) {
+      return 'You arrive in Japan on Jun 10 at 2:55 PM JST (UA 837 into NRT). Airport transfer to Ginza for first hotel.';
+    }
+    if (q.includes('depart') || q.includes('leave japan') || q.includes('go home') || q.includes('fly home')) {
+      return 'Return flight is Jun 23: UA 838 departing NRT at 5:25 PM JST, arriving SFO 11:00 AM PDT same day.';
+    }
+  }
+
+  return 'I can help with: days per city, hotel info, confirmations, check-in times, travel logistics, flexible days, costs, and suggestions. Try asking about a specific city or "how many days in Hiroshima."';
 }
 
 function findCity(q) {
   const map = [
-    ['tokyo', 'tokyo'], ['ginza', 'tokyo'], ['toranomon', 'tokyo'],
+    ['tokyo', 'tokyo'], ['ginza', 'tokyo'], ['toranomon', 'tokyo'], ['shibuya', 'tokyo'],
+    ['shinjuku', 'tokyo'], ['asakusa', 'tokyo'], ['harajuku', 'tokyo'], ['skytree', 'tokyo'],
     ['fuji', 'fuji'], ['kawaguchi', 'fuji'], ['ubuya', 'fuji'],
-    ['kyoto', 'kyoto'], ['ace hotel', 'kyoto'],
-    ['kobe', 'kobe'],
-    ['hiroshima', 'hiroshima'], ['miyajima', 'hiroshima'],
+    ['kyoto', 'kyoto'], ['ace hotel', 'kyoto'], ['kinkaku', 'kyoto'], ['arashiyama', 'kyoto'],
+    ['fushimi', 'kyoto'], ['gion', 'kyoto'],
+    ['kobe', 'kobe'], ['nankinmachi', 'kobe'],
+    ['hiroshima', 'hiroshima'], ['miyajima', 'hiroshima'], ['peace', 'hiroshima'],
   ];
   const match = map.find(([term]) => q.includes(term));
   return match ? match[1] : null;
@@ -856,19 +998,16 @@ notifyBtn.addEventListener('click', async () => {
     return;
   }
 
-  notifyStatus.textContent = 'Enabled! You\'ll get reminders for upcoming events.';
+  notifyStatus.textContent = "Enabled! You'll get reminders for upcoming events.";
   notifyBtn.textContent = 'Enabled';
   notifyBtn.disabled = true;
 
-  // Schedule a demo notification
   setTimeout(() => {
-    new Notification('Japan 2026 Itinerary', {
-      body: 'Reminders are active. You\'ll be notified before check-ins and travel days.',
-      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🗾</text></svg>',
+    new Notification('Raahi — Japan 2026', {
+      body: "Reminders are active. You'll be notified before check-ins and travel days.",
     });
   }, 2000);
 
-  // Schedule upcoming event notifications
   scheduleUpcoming();
 });
 
@@ -877,7 +1016,6 @@ function scheduleUpcoming() {
   DAYS.forEach((day) => {
     const dayDate = parseDate(day.date).getTime();
     const msAhead = dayDate - now;
-    // Notify 24 hours before, but only for future events within 15 days
     const notify24h = msAhead - 86400000;
     if (notify24h > 0 && notify24h < 15 * 86400000) {
       setTimeout(() => {
@@ -888,15 +1026,15 @@ function scheduleUpcoming() {
               ? `Stay at ${day.hotel.name}`
               : day.attractions[0] || 'Check your itinerary',
         });
-      }, Math.min(notify24h, 2147483647)); // clamp to max setTimeout
+      }, Math.min(notify24h, 2147483647));
     }
   });
 }
 
 // ===== MOBILE NAV ACTIVE STATE =====
 function updateMobileNav() {
-  const sections = ['overview', 'itinerary', 'bookings', 'map', 'ask'];
-  let current = 'overview';
+  const sections = ['route', 'itinerary', 'bookings', 'ask'];
+  let current = 'route';
 
   for (const id of sections) {
     const el = document.getElementById(id);
@@ -917,16 +1055,14 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 // ===== INIT =====
-renderRoute();
+renderCityNav();
 renderDays();
 renderBookings();
-renderMapLinks();
 renderDayOptions();
 renderCountdown();
-highlightToday();
+initStickyNav();
 updateMobileNav();
 
-// Update countdown every hour, re-highlight at midnight
 setInterval(() => {
   renderCountdown();
   highlightToday();
