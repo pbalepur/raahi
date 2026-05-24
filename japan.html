@@ -13,16 +13,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body class="is-trip">
 
-  <!-- Sticky Nav (appears on scroll past hero) -->
+  <!-- Sticky Nav -->
   <nav class="sticky-nav" id="sticky-nav" aria-label="Section navigation">
     <div class="container sticky-nav-inner">
       <a href="index.html" class="sticky-brand"><img src="icon-192.png" alt="" class="brand-icon brand-icon-sm">Raahi</a>
       <div class="sticky-links">
-        <a href="#route" class="snav-link" data-section="route">Route</a>
+        <a href="#route" class="snav-link" data-section="route">Places</a>
         <a href="#itinerary" class="snav-link" data-section="itinerary">Days</a>
         <a href="#bookings" class="snav-link" data-section="bookings">Bookings</a>
         <a href="#ask" class="snav-link" data-section="ask">Ask</a>
@@ -51,14 +52,24 @@
 
   <main>
 
-    <!-- Route / City Navigation -->
+    <!-- Places (was "Your Cities") -->
     <section class="section route-section" id="route">
       <div class="container">
-        <div class="section-intro">
-          <span class="label">The Route</span>
-          <h2>Your Cities</h2>
-          <p class="section-desc">Tap a city to jump to its days in the itinerary.</p>
+        <div class="section-intro section-intro-row">
+          <div>
+            <span class="label">The Route</span>
+            <h2>Your Places</h2>
+            <p class="section-desc">Tap a place to filter its days in the itinerary.</p>
+          </div>
+          <div class="data-actions">
+            <button id="export-btn" class="btn btn-outline btn-sm" title="Export trip data">Export</button>
+            <label class="btn btn-outline btn-sm import-label" title="Import trip data">
+              Import
+              <input type="file" id="import-input" accept=".json" hidden>
+            </label>
+          </div>
         </div>
+        <div id="route-map" class="route-map"></div>
         <div class="city-nav-grid" id="city-nav"></div>
       </div>
     </section>
@@ -70,12 +81,7 @@
           <span class="label">Day by Day</span>
           <h2>Itinerary</h2>
         </div>
-        <div class="filter-bar" id="filter-bar" role="group" aria-label="Filter days">
-          <button class="filter-btn active" data-filter="all">All</button>
-          <button class="filter-btn" data-filter="travel">Travel</button>
-          <button class="filter-btn" data-filter="explore">Explore</button>
-          <button class="filter-btn" data-filter="flexible">Flexible</button>
-        </div>
+        <div class="filter-bar" id="filter-bar" role="group" aria-label="Filter days"></div>
         <div class="day-list" id="day-list"></div>
       </div>
     </section>
@@ -91,9 +97,9 @@
       </div>
     </section>
 
-    <!-- Bulk Add Button (floating) -->
+    <!-- Bulk Add Button -->
     <div class="bulk-trigger">
-      <button id="bulk-open-btn" class="btn btn-primary">📋 Bulk Add Activities</button>
+      <button id="bulk-open-btn" class="btn btn-primary">+ Bulk Add Activities</button>
     </div>
 
     <!-- Ask -->
@@ -103,14 +109,14 @@
           <div class="section-intro">
             <span class="label">Assistant</span>
             <h2>Ask about the trip</h2>
-            <p class="section-desc">Try: "How many days in Hiroshima?", "What hotel in Kyoto?", "Which days are flexible?", "What's on day 5?"</p>
+            <p class="section-desc">Try: "How many days in Hiroshima?", "What hotel in Kyoto?", "What's on day 5?"</p>
           </div>
           <form class="ask-form" id="ask-form">
             <input id="ask-input" type="text" placeholder="Ask anything about the itinerary..." aria-label="Ask about the trip">
             <button type="submit" class="btn btn-primary">Ask</button>
           </form>
           <div class="ask-answer" id="ask-answer" aria-live="polite">
-            Ask about hotels, flights, activities, days per city, confirmations, or which days have open time.
+            Ask about hotels, flights, activities, days per place, confirmations, or costs.
           </div>
         </div>
       </div>
@@ -139,7 +145,7 @@
   <nav class="mobile-nav" aria-label="Quick navigation">
     <a href="#route" class="mnav-item active" data-section="route">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36z"/></svg>
-      <span>Route</span>
+      <span>Places</span>
     </a>
     <a href="#itinerary" class="mnav-item" data-section="itinerary">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -155,12 +161,73 @@
     </a>
   </nav>
 
+  <!-- Day Panel (slide-in from right) -->
+  <aside class="day-panel" id="day-panel">
+    <div class="day-panel-backdrop"></div>
+    <div class="day-panel-content">
+      <header class="day-panel-header">
+        <div class="day-panel-nav">
+          <button class="day-panel-prev" title="Previous day">&#8249;</button>
+          <span class="day-panel-date"></span>
+          <button class="day-panel-next" title="Next day">&#8250;</button>
+        </div>
+        <button class="day-panel-close" title="Close">&times;</button>
+        <h3 class="day-panel-title-text"></h3>
+        <span class="day-panel-place"></span>
+      </header>
+      <div class="day-panel-body">
+        <section class="panel-section panel-stay"></section>
+        <section class="panel-section panel-travel"></section>
+        <section class="panel-section panel-schedule"></section>
+        <section class="panel-section panel-wishlist"></section>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Add Place Modal -->
+  <div class="bulk-modal" id="add-place-modal">
+    <div class="bulk-content" style="max-width:420px">
+      <div class="bulk-header">
+        <h3>Add a Place</h3>
+        <button class="bulk-close-btn apm-close">&times;</button>
+      </div>
+      <form>
+        <div class="apm-field">
+          <label>Place name</label>
+          <input type="text" name="name" class="apm-name" placeholder="e.g. Osaka, Nara Park..." required>
+        </div>
+        <div class="apm-field">
+          <label>Dates</label>
+          <input type="text" name="dates" placeholder="e.g. Jun 18–19">
+        </div>
+        <div class="apm-field">
+          <label>Nights</label>
+          <input type="number" name="nights" value="1" min="0" max="30">
+        </div>
+        <div class="apm-row">
+          <div class="apm-field">
+            <label>Latitude</label>
+            <input type="text" name="lat" placeholder="34.6937">
+          </div>
+          <div class="apm-field">
+            <label>Longitude</label>
+            <input type="text" name="lng" placeholder="135.5023">
+          </div>
+        </div>
+        <div class="bulk-actions">
+          <button type="submit" class="btn btn-primary">Add Place</button>
+          <button type="button" class="btn btn-outline apm-close">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Bulk Paste Modal -->
   <div class="bulk-modal" id="bulk-modal">
     <div class="bulk-content">
       <div class="bulk-header">
         <h3>Bulk Add Activities</h3>
-        <button class="bulk-close-btn" id="bulk-close">×</button>
+        <button class="bulk-close-btn" id="bulk-close">&times;</button>
       </div>
       <p class="bulk-desc">Paste activities, one per line. Format: <code>Day 6 8:15am Shinkansen to Kyoto</code></p>
       <form id="bulk-form">
@@ -176,6 +243,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

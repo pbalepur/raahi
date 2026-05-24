@@ -1,478 +1,41 @@
 /* ============================================================
-   Raahi — Japan 2026 Travel Itinerary  (v3)
-   Timeline + Wishlist · Inline editing · Type icons
+   Raahi — Travel Itinerary App  (v4)
+   Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-// ── Activity type config ──
+// ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
   flight:     { icon: '✈️',  label: 'Flight',     color: '#6366f1' },
   hotel:      { icon: '🏨',  label: 'Hotel',      color: '#8b5cf6' },
   train:      { icon: '🚅',  label: 'Train',      color: '#0284c7' },
-  bus:        { icon: '🚌',  label: 'Bus',         color: '#0d9488' },
-  walk:       { icon: '🚶',  label: 'Walk',        color: '#65a30d' },
-  taxi:       { icon: '🚕',  label: 'Taxi/Car',    color: '#d97706' },
-  attraction: { icon: '⛩️',  label: 'See',         color: '#c53d2d' },
-  food:       { icon: '🍽️',  label: 'Food',        color: '#ea580c' },
-  shopping:   { icon: '🛍️',  label: 'Shopping',    color: '#db2777' },
-  event:      { icon: '🎵',  label: 'Event',       color: '#7c3aed' },
-  buffer:     { icon: '⏳',  label: 'Buffer',      color: '#78716c' },
+  bus:        { icon: '🚌',  label: 'Bus',        color: '#0d9488' },
+  walk:       { icon: '🚶',  label: 'Walk',       color: '#65a30d' },
+  taxi:       { icon: '🚕',  label: 'Taxi/Car',   color: '#d97706' },
+  attraction: { icon: '⛩️',  label: 'See',        color: '#c53d2d' },
+  food:       { icon: '🍽️',  label: 'Food',       color: '#ea580c' },
+  shopping:   { icon: '🛍️',  label: 'Shopping',   color: '#db2777' },
+  event:      { icon: '🎵',  label: 'Event',      color: '#7c3aed' },
+  buffer:     { icon: '⏳',  label: 'Buffer',     color: '#78716c' },
 };
 
-// ── City theme config ──
-const CITIES = {
-  transit:    { name: 'In Transit',  color: '#78716c', bg: '#f5f0e8', emoji: '✈️', img: '' },
-  tokyo:      { name: 'Tokyo',      color: '#1e3a5f', bg: '#e8eef5', emoji: '🗼', img: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400&h=250&fit=crop' },
-  fuji:       { name: 'Mt. Fuji',   color: '#4d7c0f', bg: '#f0f5e8', emoji: '🗻', img: 'https://images.unsplash.com/photo-1490806843957-31f4c9a91c65?w=400&h=250&fit=crop' },
-  kyoto:      { name: 'Kyoto',      color: '#c53d2d', bg: '#fef2f0', emoji: '⛩️', img: 'https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=400&h=250&fit=crop' },
-  kobe:       { name: 'Kobe',       color: '#b8860b', bg: '#fdf6e3', emoji: '🌉', img: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400&h=250&fit=crop' },
-  hiroshima:  { name: 'Hiroshima',  color: '#0d6e6e', bg: '#e6f5f5', emoji: '🕊️', img: 'https://images.unsplash.com/photo-1526481280693-3bfa7568e0f3?w=400&h=250&fit=crop' },
-  home:       { name: 'Home',       color: '#78716c', bg: '#f5f0e8', emoji: '🏠', img: '' },
+// ── SVG Icons ──
+const ICONS = {
+  plane: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>',
+  hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/><path d="m9 16 .348-.24c1.465-1.013 3.84-1.013 5.304 0L15 16"/><path d="M8 7h.01M16 7h.01M12 7h.01M12 11h.01M16 11h.01M8 11h.01"/></svg>',
+  train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"/><path d="M4 11h16M12 3v8M8 19l-2 3M16 19l2 3M9 15h.01M15 15h.01"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  mapPin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17,8 12,3 7,8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
 };
-
-// ── Route overview data ──
-const ROUTE = [
-  { city: 'Tokyo',     dates: 'Jun 10–14', nights: 4, key: 'tokyo' },
-  { city: 'Mt. Fuji',  dates: 'Jun 14–15', nights: 1, key: 'fuji' },
-  { city: 'Kyoto',     dates: 'Jun 15–17', nights: 2, key: 'kyoto' },
-  { city: 'Kobe',      dates: 'Jun 17–19', nights: 2, key: 'kobe' },
-  { city: 'Hiroshima', dates: 'Jun 19–22', nights: 3, key: 'hiroshima' },
-  { city: 'Tokyo',     dates: 'Jun 22–23', nights: 1, key: 'tokyo' },
-];
-
-// ── Known transit times (minutes) for travel intelligence ──
-const TRANSIT_TIMES = {
-  'tokyo→kawaguchiko':   { mode: 'bus',   label: 'Highway bus / train via Otsuki', min: 120 },
-  'kawaguchiko→mishima': { mode: 'bus',   label: 'Bus to Mishima',                 min: 90  },
-  'mishima→kyoto':       { mode: 'train', label: 'Shinkansen Hikari',              min: 110 },
-  'tokyo→kyoto':         { mode: 'train', label: 'Shinkansen Nozomi',              min: 135 },
-  'kyoto→kobe':          { mode: 'train', label: 'JR Special Rapid',               min: 50  },
-  'kobe→hiroshima':      { mode: 'train', label: 'Shinkansen',                     min: 70  },
-  'hiroshima→tokyo':     { mode: 'train', label: 'Shinkansen Nozomi',              min: 240 },
-  'hiroshima→miyajima':  { mode: 'train', label: 'JR + Ferry',                     min: 50  },
-};
-
-// ── Day-by-day itinerary ──
-const DAYS = [
-  {
-    date: '2026-06-09', dayNum: 1,
-    title: 'Departure Day',
-    cityKey: 'transit',
-    hotel: null,
-    transport: [
-      'UA 837: SFO → NRT',
-      'Depart 12:20 PM PDT',
-      'Arrive Jun 10, 2:55 PM JST',
-      'Confirmation: HC68FX',
-      'Boeing 777-300ER · United Polaris',
-    ],
-    attractions: ['Travel day — settle packing, airport timing'],
-    events: [],
-    links: [{ label: 'United', url: 'https://www.united.com/en/us/manageres/mytrips' }],
-  },
-  {
-    date: '2026-06-10', dayNum: 2,
-    title: 'Arrive in Japan',
-    cityKey: 'tokyo',
-    hotel: {
-      name: 'Aloft by Marriott Tokyo Ginza',
-      conf: '73477725',
-      checkin: '3:00 PM', checkout: '12:00 PM',
-      room: 'Guest Room, 1 King',
-      address: '6-14-3 Ginza, Chuo-ku, Tokyo',
-      points: '113,000 redeemed',
-    },
-    transport: ['UA 837 arrives NRT 2:55 PM', 'Airport transfer to Ginza'],
-    attractions: [
-      'Easy arrival meal',
-      'Neighborhood walk near hotel',
-      'Ikebukuro dining (department stores, ramen, themed cafes)',
-    ],
-    events: [],
-    links: [
-      { label: 'Marriott', url: 'https://www.marriott.com/en-us/hotels/tyoal-aloft-tokyo-ginza/overview/' },
-    ],
-  },
-  {
-    date: '2026-06-11', dayNum: 3,
-    title: 'Tokyo Day',
-    cityKey: 'tokyo',
-    hotel: { name: 'Aloft by Marriott Tokyo Ginza', conf: '73477725', room: 'Guest Room, 1 King' },
-    transport: [],
-    attractions: [
-      'Nijubashi Bridge (Imperial Palace)',
-      'Tokyo Station & Marunouchi',
-      'Hibiya Park',
-      'Kabukiza Theatre',
-      'Tsukiji Outer Market',
-      'Ginza district',
-      'Meiji Shrine',
-      'Harajuku (Takeshita Street, Omotesando)',
-    ],
-    events: [
-      'Tokyo Skytree',
-      'Asakusa (Senso-ji Temple, Nakamise Street)',
-    ],
-    links: [],
-  },
-  {
-    date: '2026-06-12', dayNum: 4,
-    title: 'Tokyo — Hotel Switch',
-    cityKey: 'tokyo',
-    hotel: {
-      name: 'Hotel Toranomon Hills',
-      conf: '9092720951162',
-      checkin: '3:00 PM', checkout: '12:00 PM',
-      room: 'Tower View, Shower, 1 King Bed',
-      address: '2-6-4 Toranomon, Tokyo',
-      cost: '$862.20',
-      note: 'Aloft checkout 12 PM → Toranomon check-in 3 PM',
-    },
-    transport: ['Move bags: Ginza → Toranomon'],
-    attractions: [
-      'Tokyo Skytree',
-      'Asakusa',
-      'Kappabashi Kitchen Town',
-      'Harajuku & Meiji Shrine (if not yet visited)',
-    ],
-    events: [],
-    links: [
-      { label: 'Hyatt', url: 'https://www.hyatt.com/unbound-collection/en-US/tyoub-hotel-toranomon-hills' },
-    ],
-  },
-  {
-    date: '2026-06-13', dayNum: 5,
-    title: 'Tokyo Day',
-    cityKey: 'tokyo',
-    hotel: { name: 'Hotel Toranomon Hills', conf: '9092720951162', room: 'Tower View, 1 King' },
-    transport: [],
-    attractions: [
-      'Kawagoe — Little Edo',
-      'Kurazukuri historic district',
-      'Toki no Kane bell tower',
-    ],
-    events: [
-      'SWE/SSO concert at Beethoven Hall (Musashino Academia Musicae)',
-      'Ikebukuro Global Ring performance',
-    ],
-    links: [],
-  },
-  {
-    date: '2026-06-14', dayNum: 6,
-    title: 'Leave for Mt. Fuji',
-    cityKey: 'fuji',
-    hotel: {
-      name: 'UBUYA',
-      conf: 'T790A13DD9795',
-      checkin: '3:00 PM', checkout: '11:00 AM',
-      room: 'Deluxe Room with Open-Air Bath, 90sqm, Mt. Fuji View',
-      address: '10 Asakawa, Fujikawaguchiko-cho',
-      cost: '$750.59 (non-refundable)',
-      note: 'Toranomon checkout 12 PM',
-    },
-    transport: ['Tokyo → Fujikawaguchiko', 'Train or bus via Otsuki'],
-    attractions: [
-      'Mt. Fuji Fifth Station',
-      'Lake Kawaguchi viewpoints',
-      'Ryokan-style slow evening with onsen',
-    ],
-    events: [
-      'Stellar Theater — Mt. Fuji Music Festival',
-    ],
-    links: [
-      { label: 'UBUYA', url: 'https://www.ubuya.co.jp/en/' },
-    ],
-  },
-  {
-    date: '2026-06-15', dayNum: 7,
-    title: 'Leave for Kyoto',
-    cityKey: 'kyoto',
-    hotel: {
-      name: 'Ace Hotel Kyoto',
-      conf: '9146SG486666',
-      checkin: '3:00 PM', checkout: '12:00 PM',
-      room: 'Standard King',
-      address: '245-2 Kurumaya-cho, Nakagyo-ku, Kyoto',
-      cost: '$660.61',
-      note: 'UBUYA checkout 11 AM',
-    },
-    transport: ['Mt. Fuji area → Kyoto', 'Rail route (seat details pending)'],
-    attractions: [
-      'Hakone-En (Lake Ashi, Komagatake Ropeway)',
-      'Kawaguchiko Music Forest Museum',
-      'Oshino Hakkai',
-      'Arrival stroll in Kyoto',
-      'First Kyoto dinner',
-    ],
-    events: [],
-    links: [
-      { label: 'Ace Hotel', url: 'https://acehotel.com/kyoto/' },
-    ],
-  },
-  {
-    date: '2026-06-16', dayNum: 8,
-    title: 'Kyoto Day',
-    cityKey: 'kyoto',
-    hotel: { name: 'Ace Hotel Kyoto', conf: '9146SG486666', room: 'Standard King' },
-    transport: [],
-    attractions: [
-      'Kinkaku-ji (Golden Pavilion)',
-      'Kiyomizu-dera',
-      'Nijo Castle',
-      'Sanjusangen-do',
-      'Gion district',
-      'Arashiyama Bamboo Grove (PM)',
-    ],
-    events: [],
-    links: [],
-  },
-  {
-    date: '2026-06-17', dayNum: 9,
-    title: 'Leave for Kobe',
-    cityKey: 'kobe',
-    hotel: {
-      name: 'ANA Crowne Plaza Kobe',
-      conf: '2462970815',
-      checkin: '3:00 PM', checkout: '11:00 AM',
-      room: 'Premium Room, 1 King Bed, City View',
-      address: '1-Chome, Kitano-cho, Chuo-ku, Kobe',
-      cost: '$246.40',
-      note: 'Ace Kyoto checkout 12 PM',
-    },
-    transport: ['Kyoto → Kobe', 'Train (seat details pending)'],
-    attractions: [
-      'Fushimi Inari Taisha (morning, en route)',
-      'Fushimi Sake District',
-      'Arashiyama Bamboo Forest (if not covered Day 8)',
-    ],
-    events: [
-      'SWE/SSO Friendship Concert at Akashi Civic Hall (with Takigawa Daini HS)',
-    ],
-    links: [
-      { label: 'IHG', url: 'https://www.ihg.com/crowneplaza/hotels/us/en/hyogo/osakb/hoteldetail' },
-    ],
-  },
-  {
-    date: '2026-06-18', dayNum: 10,
-    title: 'Kobe Day',
-    cityKey: 'kobe',
-    hotel: { name: 'ANA Crowne Plaza Kobe', conf: '2462970815', room: 'Premium Room, 1 King, City View' },
-    transport: [],
-    attractions: [
-      'Kobe Chinatown (Nankinmachi)',
-      'Kobe Harborland',
-      'Meriken Park & Port Tower',
-      'Optional: Zen experience or Awaji Island day trip',
-    ],
-    events: [],
-    links: [],
-  },
-  {
-    date: '2026-06-19', dayNum: 11,
-    title: 'Leave for Hiroshima',
-    cityKey: 'hiroshima',
-    hotel: {
-      name: 'Hilton Hiroshima',
-      conf: '3465440877',
-      checkin: '3:00 PM', checkout: '12:00 PM',
-      room: 'King Premium Room',
-      address: '11-12 Fujimicho, Naka-ku, Hiroshima',
-      points: '177,000 total',
-      note: 'ANA Kobe checkout 11 AM',
-    },
-    transport: ['Kobe → Hiroshima', 'Shinkansen (seat details pending)'],
-    attractions: [
-      'Hiroshima Peace Memorial Park',
-      'Atomic Bomb Dome (UNESCO)',
-      'Hiroshima Station area (ekie, minamoa)',
-    ],
-    events: [],
-    links: [
-      { label: 'Hilton', url: 'https://www.hilton.com/en/hotels/hijshhi-hilton-hiroshima/' },
-    ],
-  },
-  {
-    date: '2026-06-20', dayNum: 12,
-    title: 'Hiroshima Day',
-    cityKey: 'hiroshima',
-    hotel: { name: 'Hilton Hiroshima', conf: '3465440877', room: 'King Premium Room' },
-    transport: [],
-    attractions: [
-      'Peace Memorial area deeper visit',
-      'Food hall or okonomiyaki plan',
-    ],
-    events: [
-      'SWE/SSO Peace Friendship Concert at Phoenix Concert Hall',
-      'Choir performance at Jogakuin Girls HS',
-    ],
-    links: [],
-  },
-  {
-    date: '2026-06-21', dayNum: 13,
-    title: 'Hiroshima — Miyajima',
-    cityKey: 'hiroshima',
-    hotel: { name: 'Hilton Hiroshima', conf: '3465440877', room: 'King Premium Room' },
-    transport: [],
-    attractions: [
-      'Miyajima Island (Itsukushima Shrine)',
-      'Floating torii gate',
-      'Keep tides & weather in mind for best views',
-    ],
-    events: [
-      'Hijiyama HS cultural exchange (music, paper crane making)',
-    ],
-    links: [],
-  },
-  {
-    date: '2026-06-22', dayNum: 14,
-    title: 'Return to Tokyo',
-    cityKey: 'tokyo',
-    hotel: { name: 'Tokyo overnight (details pending)' },
-    transport: ['Hiroshima → Tokyo', 'Shinkansen — long rail day (seat details pending)'],
-    attractions: [
-      'Tokyo Dome — professional baseball game',
-      'Final Tokyo evening',
-    ],
-    events: [],
-    links: [],
-  },
-  {
-    date: '2026-06-23', dayNum: 15,
-    title: 'Fly Home',
-    cityKey: 'home',
-    hotel: null,
-    transport: [
-      'UA 838: NRT → SFO',
-      'Depart 5:25 PM JST',
-      'Arrive 11:00 AM PDT (same day)',
-      'Confirmation: HC68FX',
-      'Boeing 777-300ER · United Polaris',
-    ],
-    attractions: ['Airport transfer buffer', 'Home arrival'],
-    events: [],
-    links: [{ label: 'United', url: 'https://www.united.com/en/us/manageres/mytrips' }],
-  },
-];
-
-// ── Bookings ──
-const BOOKINGS = [
-  {
-    type: 'Flight', icon: 'plane',
-    title: 'United SFO ↔ NRT',
-    colorKey: 'transit',
-    details: [
-      ['Confirmation', 'HC68FX'],
-      ['Outbound', 'UA 837 · Jun 9, 12:20 PM PDT'],
-      ['Arrival', 'Jun 10, 2:55 PM JST'],
-      ['Return', 'UA 838 · Jun 23, 5:25 PM JST'],
-      ['Home', 'Jun 23, 11:00 AM PDT'],
-      ['Aircraft', 'Boeing 777-300ER'],
-      ['Class', 'United Polaris'],
-      ['Cost', '805,400 miles + $101.06'],
-    ],
-    url: 'https://www.united.com/en/us/manageres/mytrips',
-  },
-  {
-    type: 'Hotel · Tokyo', icon: 'hotel',
-    title: 'Aloft by Marriott Tokyo Ginza',
-    colorKey: 'tokyo',
-    details: [
-      ['Confirmation', '73477725'],
-      ['Dates', 'Jun 10–12 (2 nights)'],
-      ['Check in/out', '3:00 PM / 12:00 PM'],
-      ['Room', 'Guest Room, 1 King'],
-      ['Address', '6-14-3 Ginza, Chuo-ku, Tokyo'],
-      ['Phone', '+81-3-6278-8122'],
-      ['Cost', '113,000 Marriott points'],
-    ],
-    url: 'https://www.marriott.com/en-us/hotels/tyoal-aloft-tokyo-ginza/overview/',
-  },
-  {
-    type: 'Hotel · Tokyo', icon: 'hotel',
-    title: 'Hotel Toranomon Hills',
-    colorKey: 'tokyo',
-    details: [
-      ['Confirmation', '9092720951162'],
-      ['Dates', 'Jun 12–14 (2 nights)'],
-      ['Check in/out', '3:00 PM / 12:00 PM'],
-      ['Room', 'Tower View, Shower, 1 King Bed'],
-      ['Address', '2-6-4 Toranomon, Tokyo'],
-      ['Phone', '+81-3-6834-5678'],
-      ['Cost', '$862.20'],
-    ],
-    url: 'https://www.hyatt.com/unbound-collection/en-US/tyoub-hotel-toranomon-hills',
-  },
-  {
-    type: 'Hotel · Mt. Fuji', icon: 'hotel',
-    title: 'UBUYA',
-    colorKey: 'fuji',
-    details: [
-      ['Confirmation', 'T790A13DD9795'],
-      ['Dates', 'Jun 14–15 (1 night)'],
-      ['Check in/out', '3:00 PM / 11:00 AM'],
-      ['Room', 'Deluxe, Open-Air Bath, 90sqm, Mt. Fuji View'],
-      ['Address', '10 Asakawa, Fujikawaguchiko-cho'],
-      ['Phone', '0555-72-1145'],
-      ['Cost', '$750.59 (non-refundable)'],
-    ],
-    url: 'https://www.ubuya.co.jp/en/',
-  },
-  {
-    type: 'Hotel · Kyoto', icon: 'hotel',
-    title: 'Ace Hotel Kyoto',
-    colorKey: 'kyoto',
-    details: [
-      ['Confirmation', '9146SG486666'],
-      ['Dates', 'Jun 15–17 (2 nights)'],
-      ['Check in/out', '3:00 PM / 12:00 PM'],
-      ['Room', 'Standard King'],
-      ['Address', '245-2 Kurumaya-cho, Nakagyo-ku, Kyoto'],
-      ['Cost', '$660.61'],
-    ],
-    url: 'https://acehotel.com/kyoto/',
-  },
-  {
-    type: 'Hotel · Kobe', icon: 'hotel',
-    title: 'ANA Crowne Plaza Kobe',
-    colorKey: 'kobe',
-    details: [
-      ['Confirmation', '2462970815'],
-      ['Dates', 'Jun 17–19 (2 nights)'],
-      ['Check in/out', '3:00 PM / 11:00 AM'],
-      ['Room', 'Premium Room, 1 King Bed, City View'],
-      ['Address', '1-Chome, Kitano-cho, Chuo-ku, Kobe'],
-      ['Cost', '$246.40'],
-    ],
-    url: 'https://www.ihg.com/crowneplaza/hotels/us/en/hyogo/osakb/hoteldetail',
-  },
-  {
-    type: 'Hotel · Hiroshima', icon: 'hotel',
-    title: 'Hilton Hiroshima',
-    colorKey: 'hiroshima',
-    details: [
-      ['Confirmation', '3465440877'],
-      ['Dates', 'Jun 19–22 (3 nights)'],
-      ['Check in/out', '3:00 PM / 12:00 PM'],
-      ['Room', 'King Premium Room'],
-      ['Address', '11-12 Fujimicho, Naka-ku, Hiroshima'],
-      ['Phone', '+81-82-243-2700'],
-      ['Cost', '177,000 Hilton points'],
-    ],
-    url: 'https://www.hilton.com/en/hotels/hijshhi-hilton-hiroshima/',
-  },
-  {
-    type: 'Rail Transfers', icon: 'train',
-    title: 'Intercity Trains',
-    colorKey: 'transit',
-    details: [
-      ['Jun 14', 'Tokyo → Fujikawaguchiko'],
-      ['Jun 15', 'Mt. Fuji area → Kyoto'],
-      ['Jun 17', 'Kyoto → Kobe'],
-      ['Jun 19', 'Kobe → Hiroshima (Shinkansen)'],
-      ['Jun 22', 'Hiroshima → Tokyo (Shinkansen)'],
-    ],
-    url: 'https://www.google.com/maps/dir/Tokyo/Mount+Fuji/Kyoto/Kobe/Hiroshima/Tokyo',
-  },
-];
 
 // ===================================================================
 //  UTILITIES
@@ -480,16 +43,6 @@ const BOOKINGS = [
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
-
-const dayList      = $('#day-list');
-const bookingGrid  = $('#booking-grid');
-const askForm      = $('#ask-form');
-const askInput     = $('#ask-input');
-const askAnswer    = $('#ask-answer');
-const notifyBtn    = $('#notify-btn');
-const notifyStatus = $('#notify-status');
-const countdownEl  = $('#countdown');
-const stickyNav    = $('#sticky-nav');
 
 const fmtDate  = new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 const fmtDay   = new Intl.DateTimeFormat('en-US', { day: 'numeric' });
@@ -506,36 +59,21 @@ function generateId() {
   return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-// Convert "3:00 PM" → "15:00"
-function to24h(str) {
-  if (!str) return null;
-  const m = str.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  if (!m) return null;
-  let h = parseInt(m[1]);
-  const ampm = m[3].toUpperCase();
-  if (ampm === 'PM' && h < 12) h += 12;
-  if (ampm === 'AM' && h === 12) h = 0;
-  return `${String(h).padStart(2, '0')}:${m[2]}`;
-}
-
-// "15:00" → "3:00 PM"
 function to12h(t24) {
   if (!t24) return '';
-  const [hh, mm] = t24.split(':').map(Number);
+  const parts = String(t24).split(':').map(Number);
+  if (parts.length < 2 || isNaN(parts[0])) return '';
+  const [hh, mm] = parts;
   const ampm = hh >= 12 ? 'PM' : 'AM';
   const h = hh % 12 || 12;
   return `${h}:${String(mm).padStart(2, '0')} ${ampm}`;
 }
 
-// Extract time from text like "Depart 12:20 PM"
-function extractTime(text) {
-  const m = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-  return m ? to24h(m[0]) : null;
+function ampmLabel(ampm) {
+  if (!ampm) return '';
+  const map = { AM: 'Morning', PM: 'Afternoon', EVE: 'Evening' };
+  return map[ampm.toUpperCase()] || ampm;
 }
-
-// ===================================================================
-//  AUTO-DETECT ACTIVITY TYPE FROM TEXT
-// ===================================================================
 
 function detectType(text) {
   const t = text.toLowerCase();
@@ -553,202 +91,284 @@ function detectType(text) {
 }
 
 // ===================================================================
-//  DATA LAYER — Convert legacy format + localStorage edits
+//  DATA LAYER
 // ===================================================================
 
-const STORE_KEY = 'raahi_v3_items';
+const STORE_KEY = 'raahi_v4_trip';
+const EDITS_KEY = 'raahi_v4_edits';
+
+let trip = null;       // The full trip data
+let userEdits = {};    // User overrides per day
+
+function loadTrip() {
+  try {
+    const stored = localStorage.getItem(STORE_KEY);
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return null;
+}
+
+function saveTrip() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(trip));
+}
 
 function loadEdits() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); }
+  try { return JSON.parse(localStorage.getItem(EDITS_KEY) || '{}'); }
   catch { return {}; }
 }
 
-function saveEdits(edits) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(edits));
+function saveEdits() {
+  localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
 }
 
-let userEdits = loadEdits();
+// Get schedule + wishlist for a day, with user edits merged
+function getSchedule(dayIdx) {
+  const day = trip.days[dayIdx];
+  const edits = userEdits[dayIdx];
+  if (!edits) return [...(day.schedule || [])];
+  const deleted = new Set(edits.deletedSchedule || []);
+  const base = (day.schedule || []).filter(i => !deleted.has(i.id));
+  const added = (edits.addedSchedule || []);
+  return [...base, ...added];
+}
 
-// Migrate v2 custom activities if present
-(function migrateV2() {
-  const old = localStorage.getItem('japan2026_custom');
-  if (!old) return;
-  try {
-    const v2 = JSON.parse(old);
-    Object.entries(v2).forEach(([idx, items]) => {
-      if (!userEdits[idx]) userEdits[idx] = { added: [], deleted: [] };
-      items.forEach(item => {
-        userEdits[idx].added.push({
-          id: generateId(),
-          type: detectType(item.title),
-          time: null,
-          title: item.title,
-          notes: item.notes || '',
-          status: 'wishlist',
-        });
-      });
-    });
-    saveEdits(userEdits);
-    localStorage.removeItem('japan2026_custom');
-  } catch {}
-})();
+function getWishlist(dayIdx) {
+  const day = trip.days[dayIdx];
+  const edits = userEdits[dayIdx];
+  if (!edits) return [...(day.wishlist || [])];
+  const deleted = new Set(edits.deletedWishlist || []);
+  const base = (day.wishlist || []).filter(i => !deleted.has(i.id));
+  const added = (edits.addedWishlist || []);
+  return [...base, ...added];
+}
 
-// Convert a legacy DAYS entry into typed items
-function legacyToItems(day) {
-  const items = [];
-  const dayUrl = (label) => day.links.find(l =>
-    new RegExp(label, 'i').test(l.label))?.url;
-
-  // Hotel check-in (only on first day at a hotel)
-  if (day.hotel?.checkin) {
-    items.push({
-      id: `b-${day.dayNum}-hi`,
-      type: 'hotel',
-      time: to24h(day.hotel.checkin),
-      title: `Check in · ${day.hotel.name}`,
-      notes: [day.hotel.room, day.hotel.address].filter(Boolean).join(' · '),
-      status: 'confirmed',
-      confirmation: day.hotel.conf,
-      url: dayUrl('marriott|hyatt|hilton|ihg|ace|ubuya'),
-    });
+function ensureEdits(dayIdx) {
+  if (!userEdits[dayIdx]) {
+    userEdits[dayIdx] = {
+      addedSchedule: [], deletedSchedule: [],
+      addedWishlist: [], deletedWishlist: [],
+    };
   }
-
-  // Hotel checkout note (from previous hotel)
-  if (day.hotel?.note) {
-    const coMatch = day.hotel.note.match(/(\w[\w\s]+?)\s+checkout\s+(\d{1,2}[:\s]?\d{0,2}\s*[AP]M)/i);
-    if (coMatch) {
-      items.push({
-        id: `b-${day.dayNum}-co`,
-        type: 'hotel',
-        time: to24h(coMatch[2]),
-        title: `Check out · ${coMatch[1].trim()}`,
-        status: 'confirmed',
-      });
-    }
-  }
-
-  // Transport
-  day.transport.forEach((t, i) => {
-    const time = extractTime(t);
-    items.push({
-      id: `b-${day.dayNum}-t${i}`,
-      type: detectType(t),
-      time,
-      title: t.replace(/\d{1,2}:\d{2}\s*(AM|PM)\s*/gi, '').trim() || t,
-      notes: time ? '' : '',
-      status: time ? 'confirmed' : 'tentative',
-    });
-  });
-
-  // Attractions
-  day.attractions.forEach((a, i) => {
-    items.push({
-      id: `b-${day.dayNum}-a${i}`,
-      type: detectType(a),
-      time: null,
-      title: a,
-      status: 'wishlist',
-    });
-  });
-
-  // Events
-  day.events.forEach((e, i) => {
-    items.push({
-      id: `b-${day.dayNum}-e${i}`,
-      type: detectType(e),
-      time: null,
-      title: e,
-      status: 'tentative',
-    });
-  });
-
-  return items;
 }
 
-// Get final items for a day (base + user edits)
-function getItemsForDay(dayIdx) {
-  const base = legacyToItems(DAYS[dayIdx]);
-  const edits = userEdits[dayIdx] || { added: [], deleted: [] };
-  const deleted = new Set(edits.deleted || []);
-  const filtered = base.filter(i => !deleted.has(i.id));
-  const added = edits.added || [];
-  return [...filtered, ...added];
+function addScheduleItem(dayIdx, item) {
+  ensureEdits(dayIdx);
+  userEdits[dayIdx].addedSchedule.push(item);
+  saveEdits();
 }
 
-function addItem(dayIdx, item) {
-  if (!userEdits[dayIdx]) userEdits[dayIdx] = { added: [], deleted: [] };
-  userEdits[dayIdx].added.push(item);
-  saveEdits(userEdits);
+function addWishlistItem(dayIdx, item) {
+  ensureEdits(dayIdx);
+  userEdits[dayIdx].addedWishlist.push(item);
+  saveEdits();
 }
 
-function deleteItem(dayIdx, itemId) {
-  if (!userEdits[dayIdx]) userEdits[dayIdx] = { added: [], deleted: [] };
-  // If it's a user-added item, remove it from added list
-  const addedIdx = userEdits[dayIdx].added.findIndex(i => i.id === itemId);
+function deleteScheduleItem(dayIdx, itemId) {
+  ensureEdits(dayIdx);
+  const addedIdx = userEdits[dayIdx].addedSchedule.findIndex(i => i.id === itemId);
   if (addedIdx >= 0) {
-    userEdits[dayIdx].added.splice(addedIdx, 1);
+    userEdits[dayIdx].addedSchedule.splice(addedIdx, 1);
   } else {
-    // It's a base item — mark as deleted
-    userEdits[dayIdx].deleted.push(itemId);
+    userEdits[dayIdx].deletedSchedule.push(itemId);
   }
-  saveEdits(userEdits);
+  saveEdits();
+}
+
+function deleteWishlistItem(dayIdx, itemId) {
+  ensureEdits(dayIdx);
+  const addedIdx = userEdits[dayIdx].addedWishlist.findIndex(i => i.id === itemId);
+  if (addedIdx >= 0) {
+    userEdits[dayIdx].addedWishlist.splice(addedIdx, 1);
+  } else {
+    userEdits[dayIdx].deletedWishlist.push(itemId);
+  }
+  saveEdits();
+}
+
+function promoteToSchedule(dayIdx, itemId, time, ampm) {
+  const wishlist = getWishlist(dayIdx);
+  const item = wishlist.find(i => i.id === itemId);
+  if (!item) return;
+  deleteWishlistItem(dayIdx, itemId);
+  const schedItem = { ...item, id: generateId(), time: time || null, ampm: ampm || null, status: 'tentative' };
+  addScheduleItem(dayIdx, schedItem);
+  saveEdits();
+}
+
+function demoteToWishlist(dayIdx, itemId) {
+  const schedule = getSchedule(dayIdx);
+  const item = schedule.find(i => i.id === itemId);
+  if (!item) return;
+  deleteScheduleItem(dayIdx, itemId);
+  const wlItem = { ...item, id: generateId(), time: null, ampm: null, status: 'wishlist' };
+  addWishlistItem(dayIdx, wlItem);
+  saveEdits();
+}
+
+function moveItemToDay(fromDayIdx, toDayIdx, itemId, isSchedule) {
+  if (isSchedule) {
+    const items = getSchedule(fromDayIdx);
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    deleteScheduleItem(fromDayIdx, itemId);
+    addScheduleItem(toDayIdx, { ...item, id: generateId() });
+  } else {
+    const items = getWishlist(fromDayIdx);
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    deleteWishlistItem(fromDayIdx, itemId);
+    addWishlistItem(toDayIdx, { ...item, id: generateId() });
+  }
+  saveEdits();
 }
 
 // ===================================================================
-//  SVG ICONS (for navigation elements)
+//  EXPORT / IMPORT
 // ===================================================================
 
-const ICONS = {
-  plane: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>',
-  hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Z"/><path d="m9 16 .348-.24c1.465-1.013 3.84-1.013 5.304 0L15 16"/><path d="M8 7h.01M16 7h.01M12 7h.01M12 11h.01M16 11h.01M8 11h.01"/></svg>',
-  train: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2"/><path d="M4 11h16M12 3v8M8 19l-2 3M16 19l2 3M9 15h.01M15 15h.01"/></svg>',
-  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
-  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>',
-  chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
-  mapPin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
-  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
-  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
-};
+function exportTrip() {
+  // Merge user edits into a clean copy
+  const exportData = JSON.parse(JSON.stringify(trip));
+  exportData.days.forEach((day, idx) => {
+    day.schedule = getSchedule(idx);
+    day.wishlist = getWishlist(idx);
+  });
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `raahi-${trip.meta.name.toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Trip exported');
+}
+
+function importTrip(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.meta || !data.days || !data.places) {
+        showToast('Invalid trip file — missing required fields');
+        return;
+      }
+      trip = data;
+      userEdits = {};
+      saveTrip();
+      saveEdits();
+      showToast('Trip imported — refreshing...');
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      showToast('Failed to parse JSON file');
+    }
+  };
+  reader.readAsText(file);
+}
 
 // ===================================================================
-//  RENDER: City Navigation
+//  RENDER: Leaflet Route Map
 // ===================================================================
 
-function renderCityNav() {
+let routeMap = null;
+
+function renderRouteMap() {
+  const container = $('#route-map');
+  if (!container || typeof L === 'undefined') return;
+
+  // Gather place coords
+  const coords = [];
+  const markers = [];
+
+  // Start: first day's place
+  trip.route.forEach(stop => {
+    const place = trip.places[stop.key];
+    if (place && place.lat && place.lng) {
+      coords.push([place.lat, place.lng]);
+      markers.push({ lat: place.lat, lng: place.lng, place, stop });
+    }
+  });
+
+  if (coords.length < 2) {
+    container.innerHTML = '<p style="padding:24px;color:var(--ink-muted);text-align:center">Add place coordinates to see the route map</p>';
+    return;
+  }
+
+  // Dedupe coords for unique pins
+  const seen = new Set();
+  const uniqueMarkers = markers.filter(m => {
+    const key = `${m.lat},${m.lng}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  if (routeMap) routeMap.remove();
+  routeMap = L.map(container, { scrollWheelZoom: false, zoomControl: true });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap',
+    maxZoom: 18,
+  }).addTo(routeMap);
+
+  // Fit bounds with padding
+  const bounds = L.latLngBounds(coords);
+  routeMap.fitBounds(bounds, { padding: [30, 30] });
+
+  // Route polyline
+  L.polyline(coords, {
+    color: '#1c183a',
+    weight: 2.5,
+    opacity: 0.5,
+    dashArray: '8,6',
+  }).addTo(routeMap);
+
+  // City markers
+  uniqueMarkers.forEach((m, i) => {
+    const circleMarker = L.circleMarker([m.lat, m.lng], {
+      radius: 8,
+      fillColor: m.place.color,
+      color: '#fff',
+      weight: 2,
+      fillOpacity: 0.9,
+    }).addTo(routeMap);
+
+    circleMarker.bindPopup(`
+      <strong>${m.place.emoji} ${m.stop.city}</strong><br>
+      ${m.stop.dates} · ${m.stop.nights} night${m.stop.nights > 1 ? 's' : ''}<br>
+      <a href="${mapsUrl(m.stop.city)}" target="_blank" rel="noreferrer">Open in Google Maps</a>
+    `);
+
+    circleMarker.on('click', () => {
+      const placeKey = m.stop.key;
+      filterByPlace(placeKey);
+    });
+  });
+}
+
+// ===================================================================
+//  RENDER: Places Section (was "City Navigation")
+// ===================================================================
+
+function renderPlaces() {
   const cityNav = $('#city-nav');
+  if (!cityNav) return;
 
-  // Route visualization
-  const routeVis = `
-    <div class="route-visual">
-      <div class="route-line">
-        <span class="route-stop-dot" style="background:${CITIES.transit.color}">✈️</span>
-        ${ROUTE.map(r => {
-          const c = CITIES[r.key];
-          return `<span class="route-arrow">→</span><span class="route-stop-dot" style="background:${c.color}">${c.emoji}</span>`;
-        }).join('')}
-        <span class="route-arrow">→</span>
-        <span class="route-stop-dot" style="background:${CITIES.home.color}">🏠</span>
-      </div>
-      <a class="route-map-link" href="https://www.google.com/maps/dir/Tokyo/Mount+Fuji/Kyoto/Kobe/Hiroshima/Tokyo" target="_blank" rel="noreferrer">
-        ${ICONS.mapPin} View full route in Google Maps
-      </a>
-    </div>`;
-
-  const cards = ROUTE.map((stop, i) => {
-    const c = CITIES[stop.key];
-    const dayCount = DAYS.filter(d => d.cityKey === stop.key).length;
+  const cards = trip.route.map((stop, i) => {
+    const place = trip.places[stop.key];
+    if (!place) return '';
+    const dayCount = trip.days.filter(d => d.placeKey === stop.key).length;
     const hotels = [...new Set(
-      DAYS.filter(d => d.cityKey === stop.key && d.hotel?.name)
-        .map(d => d.hotel.name)
+      trip.days.filter(d => d.placeKey === stop.key && d.stay?.hotel)
+        .map(d => d.stay.hotel)
     )];
     const hotelPreview = hotels.length ? hotels[0] : '';
 
     return `
-      <button class="city-card" data-city="${stop.key}" data-idx="${i}" style="--city-color:${c.color}; --city-bg:${c.bg}">
-        ${c.img ? `<div class="city-card-img"><img src="${c.img}" alt="${stop.city}" loading="lazy"></div>` : ''}
+      <button class="city-card" data-place="${stop.key}" data-idx="${i}" style="--city-color:${place.color}; --city-bg:${place.bg}">
+        ${place.img ? `<div class="city-card-img"><img src="${place.img}" alt="${stop.city}" loading="lazy"></div>` : ''}
         <div class="city-card-body">
           <div class="city-card-info">
-            <h3>${c.emoji} ${stop.city}</h3>
+            <h3>${place.emoji} ${stop.city}</h3>
             <span class="city-dates">${stop.dates}</span>
             <span class="city-meta">${stop.nights}n · ${dayCount} day${dayCount > 1 ? 's' : ''}</span>
             ${hotelPreview ? `<span class="city-hotel">${hotelPreview}</span>` : ''}
@@ -760,95 +380,113 @@ function renderCityNav() {
       </button>`;
   }).join('');
 
-  cityNav.innerHTML = routeVis + `<div class="city-cards-row">${cards}</div>`;
+  // Add Place card
+  const addCard = `
+    <button class="city-card city-card-add" id="add-place-btn">
+      <div class="city-card-add-inner">
+        ${ICONS.plus}
+        <span>Add Place</span>
+      </div>
+    </button>`;
 
-  // Click handler: scroll to first day of that city
-  cityNav.querySelectorAll('.city-card').forEach(btn => {
+  cityNav.innerHTML = `<div class="city-cards-row">${cards}${addCard}</div>`;
+
+  // Click handlers
+  cityNav.querySelectorAll('.city-card[data-place]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       if (e.target.closest('.city-map-link')) return;
-      const cityKey = btn.dataset.city;
-      const firstDayIdx = DAYS.findIndex(d => d.cityKey === cityKey);
-      if (firstDayIdx >= 0) {
-        const allBtn = $('.filter-btn[data-filter="all"]');
-        if (allBtn) {
-          $$('.filter-btn').forEach(b => b.classList.remove('active'));
-          allBtn.classList.add('active');
-          renderDays('all');
-        }
-        requestAnimationFrame(() => {
-          const cards = $$('.day-card');
-          const target = [...cards].find(c => parseInt(c.dataset.idx) === firstDayIdx);
-          if (target) {
-            target.classList.add('expanded');
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        });
+      filterByPlace(btn.dataset.place);
+    });
+  });
+
+  // Add Place handler
+  const addBtn = $('#add-place-btn');
+  if (addBtn) addBtn.addEventListener('click', openAddPlaceModal);
+}
+
+function filterByPlace(placeKey) {
+  // Set filter pill active
+  $$('.filter-pill').forEach(p => p.classList.remove('active'));
+  const pill = $(`.filter-pill[data-place="${placeKey}"]`);
+  if (pill) pill.classList.add('active');
+
+  renderDayList(placeKey);
+
+  // Scroll to itinerary
+  const section = $('#itinerary');
+  if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ===================================================================
+//  RENDER: Filter Bar (Place Pills + Today)
+// ===================================================================
+
+function renderFilterBar() {
+  const bar = $('#filter-bar');
+  if (!bar) return;
+
+  // Unique places in route order
+  const seen = new Set();
+  const uniquePlaces = [];
+  trip.route.forEach(r => {
+    if (!seen.has(r.key)) {
+      seen.add(r.key);
+      uniquePlaces.push(r);
+    }
+  });
+
+  const pills = uniquePlaces.map(r => {
+    const place = trip.places[r.key];
+    return `<button class="filter-pill" data-place="${r.key}" style="--pill-color:${place.color}; --pill-bg:${place.bg}">${place.emoji} ${r.city}</button>`;
+  }).join('');
+
+  bar.innerHTML = `
+    <button class="filter-pill active" data-place="all">All</button>
+    <button class="filter-pill filter-pill-today" data-place="today">${ICONS.calendar} Today</button>
+    ${pills}
+  `;
+
+  bar.querySelectorAll('.filter-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      $$('.filter-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      const placeKey = pill.dataset.place;
+
+      if (placeKey === 'today') {
+        renderDayList('all');
+        scrollToToday();
+      } else {
+        renderDayList(placeKey);
       }
     });
   });
 }
 
 // ===================================================================
-//  RENDER: Day Cards — Timeline + Wishlist
+//  RENDER: Day List (compact cards that open panel)
 // ===================================================================
 
-function renderDays(filter = 'all') {
-  dayList.innerHTML = DAYS.map((day, idx) => {
+function renderDayList(filter = 'all') {
+  const dayList = $('#day-list');
+  if (!dayList) return;
+
+  dayList.innerHTML = trip.days.map((day, idx) => {
     const d = parseDate(day.date);
-    const c = CITIES[day.cityKey] || CITIES.transit;
+    const place = trip.places[day.placeKey] || trip.places.transit;
 
-    // Filter logic
-    const hasTransport = day.transport && day.transport.length > 0;
-    const isFlex = day.attractions.some(a => /flexible|pending|add|buffer|optional|free|open/i.test(a)) || day.attractions.length <= 2;
-    const isExplore = day.attractions.length > 2 && !hasTransport;
-    if (filter === 'travel' && !hasTransport) return '';
-    if (filter === 'explore' && !isExplore && hasTransport) return '';
-    if (filter === 'flexible' && !isFlex) return '';
+    // Filter
+    if (filter !== 'all' && filter !== 'today' && day.placeKey !== filter) return '';
 
-    // Get all items for this day
-    const allItems = getItemsForDay(idx);
-    const timed = allItems.filter(i => i.time).sort((a, b) => a.time.localeCompare(b.time));
-    const untimed = allItems.filter(i => !i.time);
-
-    // Counts
-    const totalCount = allItems.length;
-    const hotelName = day.hotel?.name || 'In transit';
-
-    // Build timeline HTML
-    const timelineHtml = timed.length ? `
-      <div class="day-timeline">
-        <h5 class="section-label">Scheduled</h5>
-        ${timed.map(item => renderItem(item, idx, true)).join('')}
-      </div>` : '';
-
-    // Build wishlist HTML
-    const wishlistHtml = untimed.length ? `
-      <div class="day-wishlist">
-        <h5 class="section-label">${timed.length ? 'Ideas & Wishlist' : 'Activities'}</h5>
-        ${untimed.map(item => renderItem(item, idx, false)).join('')}
-      </div>` : '';
-
-    // Hotel summary (non-check-in days)
-    const stayHtml = day.hotel && !day.hotel.checkin ? `
-      <div class="day-stay-badge">
-        <span class="stay-icon">🏨</span>
-        <span>${day.hotel.name}${day.hotel.conf ? ` · ${day.hotel.conf}` : ''}</span>
-      </div>` : '';
-
-    // Links
-    const linksHtml = day.links.map(l =>
-      `<a class="day-link" href="${l.url}" target="_blank" rel="noreferrer" onclick="event.stopPropagation()">${ICONS.arrow} ${l.label}</a>`
-    ).join('');
-
-    // Type dropdown options
-    const typeOptions = Object.entries(ITEM_TYPES).map(([k, v]) =>
-      `<option value="${k}">${v.icon} ${v.label}</option>`
-    ).join('');
+    const schedule = getSchedule(idx);
+    const wishlist = getWishlist(idx);
+    const totalCount = schedule.length + wishlist.length;
+    const hotelName = day.stay?.hotel || 'In transit';
+    const hasTravel = day.travel != null;
 
     return `
-      <article class="day-card" data-idx="${idx}" data-city="${day.cityKey}" style="--city-color:${c.color}; --city-bg:${c.bg}">
+      <article class="day-card" data-idx="${idx}" data-place="${day.placeKey}" style="--city-color:${place.color}; --city-bg:${place.bg}">
         <div class="day-rail">
-          <span class="day-weekday">${fmtWkday.format(d)}</span>
+          <span class="day-weekday">${fmtWkday.format(d).toUpperCase()}</span>
           <span class="day-num">${fmtDay.format(d)}</span>
           <span class="day-month">${fmtMonth.format(d)}</span>
         </div>
@@ -856,315 +494,504 @@ function renderDays(filter = 'all') {
           <div class="day-summary">
             <div class="day-header">
               <h3 class="day-title">${day.title}</h3>
-              <span class="day-city-pill" style="background:${c.bg}; color:${c.color}">${c.name}</span>
+              <span class="day-city-pill" style="background:${place.bg}; color:${place.color}">${place.name}</span>
             </div>
             <div class="day-preview">
+              ${hasTravel ? `<span class="day-travel-badge">${ITEM_TYPES[day.travel.mode]?.icon || '🚀'} ${day.travel.summary}</span>` : ''}
               <span class="preview-text">${totalCount} item${totalCount !== 1 ? 's' : ''} · ${hotelName}</span>
-              <span class="expand-icon">${ICONS.chevron}</span>
-            </div>
-          </div>
-          <div class="day-details">
-            ${stayHtml}
-            ${timelineHtml}
-            ${wishlistHtml}
-            ${!timed.length && !untimed.length ? '<p class="empty-day">No activities yet — add some below!</p>' : ''}
-            <div class="day-action-bar">
-              <button class="day-add-btn" data-idx="${idx}" onclick="event.stopPropagation()">
-                ${ICONS.plus} Add activity
-              </button>
-            </div>
-            <form class="inline-add-form" data-idx="${idx}" style="display:none" onclick="event.stopPropagation()">
-              <div class="iaf-row">
-                <select class="iaf-type" name="type">${typeOptions}</select>
-                <input class="iaf-time" type="time" name="time" placeholder="Time">
-              </div>
-              <input class="iaf-title" type="text" name="title" placeholder="Activity name..." required>
-              <input class="iaf-notes" type="text" name="notes" placeholder="Notes (optional)">
-              <div class="iaf-actions">
-                <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                <button type="button" class="btn btn-outline btn-sm iaf-cancel">Cancel</button>
-              </div>
-            </form>
-            <div class="day-links">
-              <a class="day-link" href="${mapsUrl(c.name === 'In Transit' || c.name === 'Home' ? 'Tokyo' : c.name)}" target="_blank" rel="noreferrer" onclick="event.stopPropagation()">${ICONS.pin} ${c.name === 'In Transit' || c.name === 'Home' ? 'Tokyo' : c.name} in Maps</a>
-              ${linksHtml}
             </div>
           </div>
         </div>
       </article>`;
   }).join('');
 
-  // Attach event handlers
-  attachDayHandlers();
-  highlightToday();
-}
-
-// Render a single item (timeline or wishlist)
-function renderItem(item, dayIdx, isTimed) {
-  const typeInfo = ITEM_TYPES[item.type] || ITEM_TYPES.attraction;
-  const isLocation = !['flight', 'buffer', 'hotel'].includes(item.type);
-  const isHotelCheckin = item.type === 'hotel' && /check\s*in/i.test(item.title);
-  const isHotelCheckout = item.type === 'hotel' && /check\s*out/i.test(item.title);
-
-  let titleHtml;
-  if (item.url) {
-    titleHtml = `<a href="${item.url}" target="_blank" rel="noreferrer" onclick="event.stopPropagation()">${item.title}</a>`;
-  } else if (isLocation) {
-    titleHtml = `<a href="${mapsUrl(item.title)}" target="_blank" rel="noreferrer" onclick="event.stopPropagation()">${item.title} <span class="maps-link-icon">${ICONS.mapPin}</span></a>`;
-  } else {
-    titleHtml = item.title;
-  }
-
-  const statusClass = item.status === 'confirmed' ? 'status-confirmed'
-    : item.status === 'tentative' ? 'status-tentative' : '';
-
-  if (isTimed) {
-    return `
-      <div class="tl-item ${statusClass}" data-id="${item.id}" data-type="${item.type}">
-        <div class="tl-time">${to12h(item.time)}</div>
-        <div class="tl-marker">
-          <span class="tl-dot" style="--type-color:${typeInfo.color}">${typeInfo.icon}</span>
-        </div>
-        <div class="tl-body">
-          <div class="tl-title">${titleHtml}</div>
-          ${item.notes ? `<div class="tl-meta">${item.notes}</div>` : ''}
-          ${item.confirmation ? `<div class="tl-conf">Conf: ${item.confirmation}</div>` : ''}
-        </div>
-        <button class="item-del" data-idx="${dayIdx}" data-id="${item.id}" title="Remove" onclick="event.stopPropagation()">×</button>
-      </div>`;
-  }
-
-  return `
-    <div class="wl-item ${statusClass}" data-id="${item.id}" data-type="${item.type}">
-      <span class="wl-icon">${typeInfo.icon}</span>
-      <div class="wl-body">
-        <div class="wl-title">${titleHtml}</div>
-        ${item.notes ? `<div class="wl-meta">${item.notes}</div>` : ''}
-      </div>
-      <button class="item-del" data-idx="${dayIdx}" data-id="${item.id}" title="Remove" onclick="event.stopPropagation()">×</button>
-    </div>`;
-}
-
-// ===================================================================
-//  EVENT HANDLERS
-// ===================================================================
-
-function attachDayHandlers() {
-  // Expand/collapse
+  // Clicking a card opens the panel
   dayList.querySelectorAll('.day-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('a') || e.target.closest('button') || e.target.closest('form') || e.target.closest('input') || e.target.closest('select')) return;
-      card.classList.toggle('expanded');
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.idx);
+      openDayPanel(idx);
     });
   });
 
-  // Add buttons
-  dayList.querySelectorAll('.day-add-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = btn.dataset.idx;
-      const form = dayList.querySelector(`.inline-add-form[data-idx="${idx}"]`);
-      if (form) {
-        form.style.display = form.style.display === 'none' ? 'grid' : 'none';
-        if (form.style.display === 'grid') {
-          form.querySelector('.iaf-title').focus();
-        }
+  highlightToday();
+}
+
+// ===================================================================
+//  DAY PANEL (Slide-in from right)
+// ===================================================================
+
+let currentPanelDay = null;
+
+function openDayPanel(dayIdx) {
+  currentPanelDay = dayIdx;
+  const panel = $('#day-panel');
+  if (!panel) return;
+
+  const day = trip.days[dayIdx];
+  const place = trip.places[day.placeKey] || trip.places.transit;
+  const d = parseDate(day.date);
+
+  const schedule = getSchedule(dayIdx);
+  const wishlist = getWishlist(dayIdx);
+
+  // Sort schedule: timed items first (by time), then ampm-only items
+  const sortedSchedule = schedule.sort((a, b) => {
+    if (a.time && b.time) return a.time.localeCompare(b.time);
+    if (a.time && !b.time) return -1;
+    if (!a.time && b.time) return 1;
+    const ampmOrder = { AM: 0, PM: 1, EVE: 2 };
+    return (ampmOrder[(a.ampm || '').toUpperCase()] || 0) - (ampmOrder[(b.ampm || '').toUpperCase()] || 0);
+  });
+
+  // Header
+  panel.querySelector('.day-panel-date').textContent = `${fmtDate.format(d)} · Day ${day.dayNum}`;
+  panel.querySelector('.day-panel-title-text').textContent = day.title;
+  panel.querySelector('.day-panel-title-text').style.color = place.color;
+
+  // City pill
+  const pillEl = panel.querySelector('.day-panel-place');
+  pillEl.textContent = `${place.emoji} ${place.name}`;
+  pillEl.style.background = place.bg;
+  pillEl.style.color = place.color;
+
+  // Stay badge
+  const stayEl = panel.querySelector('.panel-stay');
+  if (day.stay) {
+    const stayUrl = day.stay.url ? ` <a href="${day.stay.url}" target="_blank" rel="noreferrer" class="stay-link">${ICONS.arrow}</a>` : '';
+    stayEl.innerHTML = `
+      <div class="stay-badge">
+        <span class="stay-icon">🏨</span>
+        <div class="stay-info">
+          <strong>${day.stay.hotel}</strong>
+          ${day.stay.room ? `<span>${day.stay.room}</span>` : ''}
+          ${day.stay.confirmation ? `<span class="stay-conf">Conf: ${day.stay.confirmation}</span>` : ''}
+        </div>
+        ${stayUrl}
+      </div>`;
+    stayEl.style.display = '';
+  } else {
+    stayEl.style.display = 'none';
+  }
+
+  // Travel section
+  const travelEl = panel.querySelector('.panel-travel');
+  if (day.travel) {
+    const modeIcon = ITEM_TYPES[day.travel.mode]?.icon || '🚀';
+    const travelUrl = day.travel.url
+      ? `<a href="${day.travel.url}" target="_blank" rel="noreferrer" class="travel-link">${ICONS.arrow}</a>`
+      : '';
+    travelEl.innerHTML = `
+      <h4 class="panel-label">Travel</h4>
+      <div class="travel-card">
+        <span class="travel-icon">${modeIcon}</span>
+        <div class="travel-info">
+          <strong>${day.travel.summary}</strong>
+          <span>${day.travel.details}</span>
+          ${day.travel.confirmation ? `<span class="travel-conf">Conf: ${day.travel.confirmation}</span>` : ''}
+        </div>
+        ${travelUrl}
+      </div>`;
+    travelEl.style.display = '';
+  } else {
+    travelEl.style.display = 'none';
+  }
+
+  // Schedule section
+  const schedEl = panel.querySelector('.panel-schedule');
+  if (sortedSchedule.length > 0) {
+    schedEl.innerHTML = `
+      <h4 class="panel-label">Schedule</h4>
+      <div class="panel-timeline">
+        ${sortedSchedule.map(item => renderPanelItem(item, dayIdx, true)).join('')}
+      </div>
+      <button class="panel-add-btn" data-section="schedule" data-idx="${dayIdx}">
+        ${ICONS.plus} Add to schedule
+      </button>`;
+    schedEl.style.display = '';
+  } else {
+    schedEl.innerHTML = `
+      <h4 class="panel-label">Schedule</h4>
+      <p class="panel-empty">No scheduled items yet</p>
+      <button class="panel-add-btn" data-section="schedule" data-idx="${dayIdx}">
+        ${ICONS.plus} Add to schedule
+      </button>`;
+    schedEl.style.display = '';
+  }
+
+  // Wishlist section
+  const wlEl = panel.querySelector('.panel-wishlist');
+  wlEl.innerHTML = `
+    <h4 class="panel-label">Wishlist</h4>
+    ${wishlist.length > 0
+      ? `<div class="panel-wl-list">${wishlist.map(item => renderPanelItem(item, dayIdx, false)).join('')}</div>`
+      : '<p class="panel-empty">No wishlist items</p>'
+    }
+    <button class="panel-add-btn" data-section="wishlist" data-idx="${dayIdx}">
+      ${ICONS.plus} Add to wishlist
+    </button>`;
+
+  // Attach panel event handlers
+  attachPanelHandlers(dayIdx);
+
+  // Show panel
+  panel.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Day navigation
+  panel.querySelector('.day-panel-prev').onclick = () => {
+    if (dayIdx > 0) openDayPanel(dayIdx - 1);
+  };
+  panel.querySelector('.day-panel-next').onclick = () => {
+    if (dayIdx < trip.days.length - 1) openDayPanel(dayIdx + 1);
+  };
+  panel.querySelector('.day-panel-prev').style.visibility = dayIdx > 0 ? '' : 'hidden';
+  panel.querySelector('.day-panel-next').style.visibility = dayIdx < trip.days.length - 1 ? '' : 'hidden';
+}
+
+function closeDayPanel() {
+  const panel = $('#day-panel');
+  if (panel) {
+    panel.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  currentPanelDay = null;
+}
+
+function renderPanelItem(item, dayIdx, isSchedule) {
+  const typeInfo = ITEM_TYPES[item.type] || ITEM_TYPES.attraction;
+  const statusClass = item.status === 'confirmed' ? 'pi-confirmed' : item.status === 'tentative' ? 'pi-tentative' : '';
+
+  const timeDisplay = item.time
+    ? `<span class="pi-time">${to12h(item.time)}</span>`
+    : item.ampm
+      ? `<span class="pi-time pi-ampm">${ampmLabel(item.ampm)}</span>`
+      : '';
+
+  const mapBtn = !['flight', 'buffer', 'hotel'].includes(item.type)
+    ? `<a href="${mapsUrl(item.title)}" target="_blank" rel="noreferrer" class="pi-map" title="Open in Maps" onclick="event.stopPropagation()">${ICONS.mapPin}</a>`
+    : '';
+
+  const urlLink = item.url
+    ? `<a href="${item.url}" target="_blank" rel="noreferrer" class="pi-ext-link" onclick="event.stopPropagation()">${ICONS.arrow}</a>`
+    : '';
+
+  return `
+    <div class="panel-item ${statusClass}" data-id="${item.id}" data-idx="${dayIdx}" data-schedule="${isSchedule}">
+      <div class="pi-main">
+        <span class="pi-icon" style="--type-color:${typeInfo.color}">${typeInfo.icon}</span>
+        <div class="pi-body">
+          ${timeDisplay}
+          <span class="pi-title">${item.title}</span>
+          ${item.notes ? `<span class="pi-notes">${item.notes}</span>` : ''}
+          ${item.confirmation ? `<span class="pi-conf">Conf: ${item.confirmation}</span>` : ''}
+        </div>
+        <div class="pi-actions">
+          ${mapBtn}
+          ${urlLink}
+        </div>
+      </div>
+      <div class="pi-detail" style="display:none">
+        <div class="pi-detail-row">
+          <label>Time</label>
+          <input type="time" class="pi-time-input" value="${item.time || ''}" data-id="${item.id}">
+          <select class="pi-ampm-select" data-id="${item.id}">
+            <option value="">—</option>
+            <option value="AM" ${item.ampm === 'AM' ? 'selected' : ''}>Morning</option>
+            <option value="PM" ${item.ampm === 'PM' ? 'selected' : ''}>Afternoon</option>
+            <option value="EVE" ${item.ampm === 'EVE' ? 'selected' : ''}>Evening</option>
+          </select>
+        </div>
+        <div class="pi-detail-row">
+          <label>Move to Day</label>
+          <select class="pi-move-day" data-id="${item.id}">
+            ${trip.days.map((d, i) => `<option value="${i}" ${i === dayIdx ? 'selected' : ''}>Day ${d.dayNum} — ${d.title}</option>`).join('')}
+          </select>
+        </div>
+        <div class="pi-detail-actions">
+          ${isSchedule
+            ? `<button class="pi-demote" data-id="${item.id}" data-idx="${dayIdx}">Move to Wishlist</button>`
+            : `<button class="pi-promote" data-id="${item.id}" data-idx="${dayIdx}">Move to Schedule</button>`
+          }
+          <button class="pi-delete" data-id="${item.id}" data-idx="${dayIdx}" data-schedule="${isSchedule}">
+            ${ICONS.trash} Delete
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function attachPanelHandlers(dayIdx) {
+  const panel = $('#day-panel');
+
+  // Expand/collapse items
+  panel.querySelectorAll('.pi-main').forEach(main => {
+    main.addEventListener('click', (e) => {
+      if (e.target.closest('a')) return;
+      const item = main.closest('.panel-item');
+      const detail = item.querySelector('.pi-detail');
+      const isOpen = detail.style.display !== 'none';
+      // Close all others
+      panel.querySelectorAll('.pi-detail').forEach(d => d.style.display = 'none');
+      panel.querySelectorAll('.panel-item').forEach(i => i.classList.remove('expanded'));
+      if (!isOpen) {
+        detail.style.display = '';
+        item.classList.add('expanded');
       }
     });
   });
 
-  // Cancel buttons
-  dayList.querySelectorAll('.iaf-cancel').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const form = btn.closest('.inline-add-form');
-      form.style.display = 'none';
-      form.reset();
-    });
-  });
-
-  // Submit inline add forms
-  dayList.querySelectorAll('.inline-add-form').forEach(form => {
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const idx = parseInt(form.dataset.idx);
-      const fd = new FormData(form);
-      const title = fd.get('title').toString().trim();
-      if (!title) return;
-
-      const item = {
-        id: generateId(),
-        type: fd.get('type'),
-        time: fd.get('time') || null,
-        title,
-        notes: fd.get('notes')?.toString().trim() || '',
-        status: fd.get('time') ? 'tentative' : 'wishlist',
-      };
-
-      addItem(idx, item);
-      form.reset();
-      form.style.display = 'none';
-
-      const activeFilter = $('.filter-btn.active')?.dataset.filter || 'all';
-      renderDays(activeFilter);
-      // Re-expand the card we were editing
-      requestAnimationFrame(() => {
-        const card = dayList.querySelector(`.day-card[data-idx="${idx}"]`);
-        if (card) card.classList.add('expanded');
-      });
-    });
-  });
-
   // Delete buttons
-  dayList.querySelectorAll('.item-del').forEach(btn => {
+  panel.querySelectorAll('.pi-delete').forEach(btn => {
     btn.addEventListener('click', () => {
+      const itemId = btn.dataset.id;
       const idx = parseInt(btn.dataset.idx);
-      const id = btn.dataset.id;
-      deleteItem(idx, id);
+      const isSchedule = btn.dataset.schedule === 'true';
 
-      const activeFilter = $('.filter-btn.active')?.dataset.filter || 'all';
-      renderDays(activeFilter);
-      requestAnimationFrame(() => {
-        const card = dayList.querySelector(`.day-card[data-idx="${idx}"]`);
-        if (card) card.classList.add('expanded');
-      });
+      if (isSchedule) {
+        // Save for undo
+        const items = getSchedule(idx);
+        const item = items.find(i => i.id === itemId);
+        deleteScheduleItem(idx, itemId);
+        showUndoToast('Item deleted', () => {
+          if (item) addScheduleItem(idx, item);
+          openDayPanel(idx);
+        });
+      } else {
+        const items = getWishlist(idx);
+        const item = items.find(i => i.id === itemId);
+        deleteWishlistItem(idx, itemId);
+        showUndoToast('Item deleted', () => {
+          if (item) addWishlistItem(idx, item);
+          openDayPanel(idx);
+        });
+      }
+      openDayPanel(idx);
+      renderDayList(getActiveFilter());
+    });
+  });
+
+  // Promote (wishlist → schedule)
+  panel.querySelectorAll('.pi-promote').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const itemId = btn.dataset.id;
+      const idx = parseInt(btn.dataset.idx);
+      promoteToSchedule(idx, itemId, null, 'AM');
+      openDayPanel(idx);
+      renderDayList(getActiveFilter());
+    });
+  });
+
+  // Demote (schedule → wishlist)
+  panel.querySelectorAll('.pi-demote').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const itemId = btn.dataset.id;
+      const idx = parseInt(btn.dataset.idx);
+      demoteToWishlist(idx, itemId);
+      openDayPanel(idx);
+      renderDayList(getActiveFilter());
+    });
+  });
+
+  // Move to different day
+  panel.querySelectorAll('.pi-move-day').forEach(select => {
+    select.addEventListener('change', () => {
+      const itemId = select.dataset.id;
+      const toDayIdx = parseInt(select.value);
+      const item = select.closest('.panel-item');
+      const isSchedule = item.dataset.schedule === 'true';
+      if (toDayIdx !== dayIdx) {
+        moveItemToDay(dayIdx, toDayIdx, itemId, isSchedule);
+        showToast(`Moved to Day ${trip.days[toDayIdx].dayNum}`);
+        openDayPanel(dayIdx);
+        renderDayList(getActiveFilter());
+      }
+    });
+  });
+
+  // Time input changes (auto-promote/demote)
+  panel.querySelectorAll('.pi-time-input').forEach(input => {
+    input.addEventListener('change', () => {
+      const itemId = input.dataset.id;
+      const item = input.closest('.panel-item');
+      const isSchedule = item.dataset.schedule === 'true';
+      const newTime = input.value || null;
+
+      if (!isSchedule && newTime) {
+        // Promote to schedule
+        promoteToSchedule(dayIdx, itemId, newTime, null);
+        openDayPanel(dayIdx);
+        renderDayList(getActiveFilter());
+      }
+    });
+  });
+
+  // Add buttons
+  panel.querySelectorAll('.panel-add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const section = btn.dataset.section;
+      showPanelAddForm(dayIdx, section, btn);
     });
   });
 }
 
-// ===================================================================
-//  BULK PASTE
-// ===================================================================
+function showPanelAddForm(dayIdx, section, afterEl) {
+  // Remove any existing form
+  const existing = $('#panel-add-form');
+  if (existing) existing.remove();
 
-function initBulkPaste() {
-  const modal = $('#bulk-modal');
-  const openBtn = $('#bulk-open-btn');
-  const closeBtn = $('#bulk-close');
-  const form = $('#bulk-form');
-  const preview = $('#bulk-preview');
-  const textarea = $('#bulk-text');
+  const typeOptions = Object.entries(ITEM_TYPES).map(([k, v]) =>
+    `<option value="${k}">${v.icon} ${v.label}</option>`
+  ).join('');
 
-  if (!modal || !openBtn) return;
+  const form = document.createElement('form');
+  form.id = 'panel-add-form';
+  form.className = 'panel-add-form';
+  form.innerHTML = `
+    <div class="paf-row">
+      <select name="type" class="paf-type">${typeOptions}</select>
+      ${section === 'schedule' ? '<input type="time" name="time" class="paf-time">' : ''}
+    </div>
+    <input type="text" name="title" class="paf-title" placeholder="Activity name..." required autofocus>
+    <input type="text" name="notes" class="paf-notes" placeholder="Notes (optional)">
+    <div class="paf-actions">
+      <button type="submit" class="btn btn-primary btn-sm">Add</button>
+      <button type="button" class="btn btn-outline btn-sm paf-cancel">Cancel</button>
+    </div>`;
 
-  openBtn.addEventListener('click', () => {
-    modal.classList.add('open');
-    textarea.focus();
-  });
+  afterEl.after(form);
+  form.querySelector('.paf-title').focus();
 
-  closeBtn.addEventListener('click', () => {
-    modal.classList.remove('open');
-    form.reset();
-    preview.innerHTML = '';
-  });
-
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.classList.remove('open');
-      form.reset();
-      preview.innerHTML = '';
-    }
-  });
-
-  // Live preview as user types
-  textarea.addEventListener('input', () => {
-    const lines = textarea.value.split('\n').filter(l => l.trim());
-    const parsed = lines.map(parseBulkLine).filter(Boolean);
-    preview.innerHTML = parsed.length
-      ? parsed.map(p => {
-          const typeInfo = ITEM_TYPES[p.type] || ITEM_TYPES.attraction;
-          return `<div class="bulk-preview-item">
-            <span>${typeInfo.icon}</span>
-            <span>${p.dayNum ? `Day ${p.dayNum}` : '?'}</span>
-            <span>${p.time ? to12h(p.time) : '—'}</span>
-            <span>${p.title}</span>
-          </div>`;
-        }).join('')
-      : '<p class="bulk-hint">Enter activities, one per line. Format: <code>Day 6 8:15am Shinkansen to Kyoto</code></p>';
-  });
+  form.querySelector('.paf-cancel').addEventListener('click', () => form.remove());
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const lines = textarea.value.split('\n').filter(l => l.trim());
-    const parsed = lines.map(parseBulkLine).filter(Boolean);
-    let added = 0;
+    const fd = new FormData(form);
+    const title = fd.get('title').toString().trim();
+    if (!title) return;
 
-    parsed.forEach(p => {
-      if (!p.dayNum || p.dayNum < 1 || p.dayNum > DAYS.length) return;
-      const dayIdx = p.dayNum - 1;
-      addItem(dayIdx, {
-        id: generateId(),
-        type: p.type,
-        time: p.time,
-        title: p.title,
-        notes: '',
-        status: p.time ? 'tentative' : 'wishlist',
-      });
-      added++;
-    });
+    const item = {
+      id: generateId(),
+      type: fd.get('type'),
+      title,
+      notes: fd.get('notes')?.toString().trim() || '',
+      status: section === 'schedule' ? 'tentative' : 'wishlist',
+    };
 
-    modal.classList.remove('open');
-    form.reset();
-    preview.innerHTML = '';
-
-    if (added > 0) {
-      const activeFilter = $('.filter-btn.active')?.dataset.filter || 'all';
-      renderDays(activeFilter);
-      showToast(`Added ${added} activit${added > 1 ? 'ies' : 'y'}`);
+    if (section === 'schedule') {
+      item.time = fd.get('time') || null;
+      item.ampm = item.time ? null : 'AM';
+      addScheduleItem(dayIdx, item);
+    } else {
+      item.time = null;
+      item.ampm = null;
+      addWishlistItem(dayIdx, item);
     }
+
+    form.remove();
+    openDayPanel(dayIdx);
+    renderDayList(getActiveFilter());
+    showToast('Activity added');
   });
 }
 
-function parseBulkLine(line) {
-  line = line.trim();
-  if (!line) return null;
-
-  let dayNum = null;
-  let time = null;
-
-  // Extract "Day N" or just a leading number
-  const dayMatch = line.match(/^(?:day\s+)?(\d{1,2})\b[,:\s]*/i);
-  if (dayMatch) {
-    const n = parseInt(dayMatch[1]);
-    if (n >= 1 && n <= 15) {
-      dayNum = n;
-      line = line.slice(dayMatch[0].length).trim();
-    }
-  }
-
-  // Extract time (8:15am, 14:30, 3pm, etc.)
-  const timeMatch = line.match(/^(\d{1,2}):?(\d{2})?\s*(am|pm)?\b[,:\s]*/i);
-  if (timeMatch) {
-    let h = parseInt(timeMatch[1]);
-    const m = parseInt(timeMatch[2] || '0');
-    const ampm = (timeMatch[3] || '').toLowerCase();
-    if (ampm === 'pm' && h < 12) h += 12;
-    if (ampm === 'am' && h === 12) h = 0;
-    if (!ampm && h <= 12 && timeMatch[2]) {
-      // Assume 24h if no am/pm and has minutes
-    }
-    if (h >= 0 && h < 24) {
-      time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      line = line.slice(timeMatch[0].length).trim();
-    }
-  }
-
-  const title = line.trim();
-  if (!title) return null;
-
-  return { dayNum, time, title, type: detectType(title) };
+function getActiveFilter() {
+  const active = $('.filter-pill.active');
+  return active ? active.dataset.place : 'all';
 }
 
-// Toast notification
-function showToast(msg) {
-  const existing = $('.toast');
-  if (existing) existing.remove();
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  toast.textContent = msg;
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('show'));
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
-  }, 2500);
+// ===================================================================
+//  ADD PLACE MODAL
+// ===================================================================
+
+function openAddPlaceModal() {
+  const modal = $('#add-place-modal');
+  if (modal) {
+    modal.classList.add('open');
+    modal.querySelector('.apm-name').focus();
+  }
+}
+
+function closeAddPlaceModal() {
+  const modal = $('#add-place-modal');
+  if (modal) {
+    modal.classList.remove('open');
+    modal.querySelector('form').reset();
+  }
+}
+
+function initAddPlaceModal() {
+  const modal = $('#add-place-modal');
+  if (!modal) return;
+
+  modal.querySelectorAll('.apm-close').forEach(btn => btn.addEventListener('click', closeAddPlaceModal));
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeAddPlaceModal();
+  });
+
+  modal.querySelector('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const name = fd.get('name').toString().trim();
+    if (!name) return;
+
+    const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const dates = fd.get('dates').toString().trim() || 'TBD';
+    const nights = parseInt(fd.get('nights')) || 1;
+    const lat = parseFloat(fd.get('lat')) || null;
+    const lng = parseFloat(fd.get('lng')) || null;
+
+    // Pick a color
+    const colors = ['#1e3a5f', '#4d7c0f', '#c53d2d', '#b8860b', '#0d6e6e', '#7c3aed', '#db2777'];
+    const usedColors = Object.values(trip.places).map(p => p.color);
+    const color = colors.find(c => !usedColors.includes(c)) || colors[Math.floor(Math.random() * colors.length)];
+
+    // Add to places
+    trip.places[key] = {
+      name, color, bg: '#f5f0e8', emoji: '📍', img: '', lat, lng,
+    };
+
+    // Add to route
+    trip.route.push({ city: name, dates, nights, key });
+
+    // Save and re-render
+    saveTrip();
+    closeAddPlaceModal();
+    renderPlaces();
+    renderRouteMap();
+    renderFilterBar();
+    showToast(`${name} added to your trip`);
+  });
+}
+
+// ===================================================================
+//  DELETE PLACE
+// ===================================================================
+
+function deletePlaceConfirm(placeKey) {
+  const place = trip.places[placeKey];
+  if (!place) return;
+  const dayCount = trip.days.filter(d => d.placeKey === placeKey).length;
+  const msg = dayCount > 0
+    ? `Remove ${place.name} and its ${dayCount} day${dayCount > 1 ? 's' : ''} from your trip? This cannot be undone.`
+    : `Remove ${place.name} from your trip? This cannot be undone.`;
+
+  if (!confirm(msg)) return;
+
+  // Remove days
+  trip.days = trip.days.filter(d => d.placeKey !== placeKey);
+  // Renumber
+  trip.days.forEach((d, i) => d.dayNum = i + 1);
+  // Remove from route
+  trip.route = trip.route.filter(r => r.key !== placeKey);
+  // Remove place
+  delete trip.places[placeKey];
+
+  saveTrip();
+  renderPlaces();
+  renderRouteMap();
+  renderFilterBar();
+  renderDayList('all');
+  showToast(`${place.name} removed`);
 }
 
 // ===================================================================
@@ -1172,11 +999,14 @@ function showToast(msg) {
 // ===================================================================
 
 function renderBookings() {
-  bookingGrid.innerHTML = BOOKINGS.map((b) => {
-    const c = CITIES[b.colorKey] || CITIES.transit;
+  const bookingGrid = $('#booking-grid');
+  if (!bookingGrid) return;
+
+  bookingGrid.innerHTML = trip.bookings.map((b) => {
+    const place = trip.places[b.colorKey] || trip.places.transit;
     const icon = ICONS[b.icon] || ICONS.hotel;
     return `
-      <article class="booking-card" style="--booking-color:${c.color}; --booking-color-bg:${c.bg}">
+      <article class="booking-card" style="--booking-color:${place.color}; --booking-color-bg:${place.bg}">
         <div class="booking-card-header">
           <div class="booking-icon">${icon}</div>
           <div>
@@ -1200,8 +1030,9 @@ function renderBookings() {
 
 function getTripStatus() {
   const now = new Date();
-  const tripStart = new Date('2026-06-09T00:00:00-07:00');
-  const tripEnd = new Date('2026-06-24T00:00:00-07:00');
+  const tripStart = new Date(trip.meta.startDate + 'T00:00:00-07:00');
+  const tripEnd = new Date(trip.meta.endDate + 'T00:00:00-07:00');
+  tripEnd.setDate(tripEnd.getDate() + 1);
 
   if (now < tripStart) {
     return { phase: 'before', daysUntil: Math.ceil((tripStart - now) / 86400000) };
@@ -1210,25 +1041,23 @@ function getTripStatus() {
     return { phase: 'after' };
   }
 
-  const dayIndex = DAYS.findIndex(d => {
+  const dayIndex = trip.days.findIndex(d => {
     const dayDate = parseDate(d.date);
     const nextDay = new Date(dayDate); nextDay.setDate(nextDay.getDate() + 1);
     return now >= dayDate && now < nextDay;
   });
 
-  return {
-    phase: 'during',
-    dayIndex: dayIndex >= 0 ? dayIndex : 0,
-    dayNum: dayIndex >= 0 ? dayIndex + 1 : 1,
-  };
+  return { phase: 'during', dayIndex: dayIndex >= 0 ? dayIndex : 0, dayNum: dayIndex >= 0 ? dayIndex + 1 : 1 };
 }
 
 function renderCountdown() {
+  const countdownEl = $('#countdown');
+  if (!countdownEl) return;
   const status = getTripStatus();
   if (status.phase === 'before') {
     countdownEl.textContent = `${status.daysUntil} day${status.daysUntil !== 1 ? 's' : ''} until departure`;
   } else if (status.phase === 'during') {
-    countdownEl.textContent = `Day ${status.dayNum} of 15 — enjoy the trip!`;
+    countdownEl.textContent = `Day ${status.dayNum} of ${trip.days.length} — enjoy the trip!`;
     countdownEl.style.background = 'rgba(77,124,15,.25)';
   } else {
     countdownEl.textContent = 'Trip complete — welcome home!';
@@ -1243,8 +1072,7 @@ function highlightToday() {
   requestAnimationFrame(() => {
     const cards = document.querySelectorAll('.day-card');
     if (!cards[status.dayIndex]) return;
-
-    cards[status.dayIndex].classList.add('is-today', 'expanded');
+    cards[status.dayIndex].classList.add('is-today');
 
     const header = cards[status.dayIndex].querySelector('.day-header');
     if (header && !header.querySelector('.today-badge')) {
@@ -1253,36 +1081,198 @@ function highlightToday() {
       badge.textContent = 'Today';
       header.appendChild(badge);
     }
-
-    if (cards[status.dayIndex + 1]) {
-      cards[status.dayIndex + 1].classList.add('is-next');
-      const nextHeader = cards[status.dayIndex + 1].querySelector('.day-header');
-      if (nextHeader && !nextHeader.querySelector('.next-badge')) {
-        const badge = document.createElement('span');
-        badge.className = 'next-badge';
-        badge.textContent = 'Tomorrow';
-        nextHeader.appendChild(badge);
-      }
-    }
-
-    setTimeout(() => {
-      cards[status.dayIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 600);
   });
 }
 
+function scrollToToday() {
+  const status = getTripStatus();
+  if (status.phase === 'during') {
+    const cards = document.querySelectorAll('.day-card');
+    if (cards[status.dayIndex]) {
+      cards[status.dayIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Auto-open the panel for today
+      setTimeout(() => openDayPanel(status.dayIndex), 500);
+    }
+  } else {
+    showToast('Trip hasn\'t started yet — showing Day 1');
+    const cards = document.querySelectorAll('.day-card');
+    if (cards[0]) {
+      cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+}
+
 // ===================================================================
-//  STICKY NAV
+//  BULK PASTE
+// ===================================================================
+
+function initBulkPaste() {
+  const modal = $('#bulk-modal');
+  const openBtn = $('#bulk-open-btn');
+  const closeBtn = $('#bulk-close');
+  const form = $('#bulk-form');
+  const preview = $('#bulk-preview');
+  const textarea = $('#bulk-text');
+
+  if (!modal || !openBtn) return;
+
+  openBtn.addEventListener('click', () => { modal.classList.add('open'); textarea.focus(); });
+  closeBtn.addEventListener('click', () => { modal.classList.remove('open'); form.reset(); preview.innerHTML = ''; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) { modal.classList.remove('open'); form.reset(); preview.innerHTML = ''; } });
+
+  textarea.addEventListener('input', () => {
+    const lines = textarea.value.split('\n').filter(l => l.trim());
+    const parsed = lines.map(parseBulkLine).filter(Boolean);
+    preview.innerHTML = parsed.length
+      ? parsed.map(p => {
+          const typeInfo = ITEM_TYPES[p.type] || ITEM_TYPES.attraction;
+          return `<div class="bulk-preview-item">
+            <span>${typeInfo.icon}</span>
+            <span>${p.dayNum ? `Day ${p.dayNum}` : '?'}</span>
+            <span>${p.time ? to12h(p.time) : '—'}</span>
+            <span>${p.title}</span>
+          </div>`;
+        }).join('')
+      : '<p class="bulk-hint">Enter activities, one per line. Format: <code>Day 6 8:15am Shinkansen to Kyoto</code></p>';
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const lines = textarea.value.split('\n').filter(l => l.trim());
+    const parsed = lines.map(parseBulkLine).filter(Boolean);
+    let added = 0;
+
+    parsed.forEach(p => {
+      if (!p.dayNum || p.dayNum < 1 || p.dayNum > trip.days.length) return;
+      const dayIdx = p.dayNum - 1;
+      const item = { id: generateId(), type: p.type, title: p.title, notes: '', status: p.time ? 'tentative' : 'wishlist' };
+      if (p.time) {
+        item.time = p.time;
+        item.ampm = null;
+        addScheduleItem(dayIdx, item);
+      } else {
+        item.time = null;
+        item.ampm = null;
+        addWishlistItem(dayIdx, item);
+      }
+      added++;
+    });
+
+    modal.classList.remove('open');
+    form.reset();
+    preview.innerHTML = '';
+    if (added > 0) {
+      renderDayList(getActiveFilter());
+      showToast(`Added ${added} activit${added > 1 ? 'ies' : 'y'}`);
+    }
+  });
+}
+
+function parseBulkLine(line) {
+  line = line.trim();
+  if (!line) return null;
+  let dayNum = null, time = null;
+
+  const dayMatch = line.match(/^(?:day\s+)?(\d{1,2})\b[,:\s]*/i);
+  if (dayMatch) {
+    const n = parseInt(dayMatch[1]);
+    if (n >= 1 && n <= 30) { dayNum = n; line = line.slice(dayMatch[0].length).trim(); }
+  }
+
+  const timeMatch = line.match(/^(\d{1,2}):?(\d{2})?\s*(am|pm)?\b[,:\s]*/i);
+  if (timeMatch) {
+    let h = parseInt(timeMatch[1]);
+    const m = parseInt(timeMatch[2] || '0');
+    const ampm = (timeMatch[3] || '').toLowerCase();
+    if (ampm === 'pm' && h < 12) h += 12;
+    if (ampm === 'am' && h === 12) h = 0;
+    if (h >= 0 && h < 24) { time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; line = line.slice(timeMatch[0].length).trim(); }
+  }
+
+  const title = line.trim();
+  if (!title) return null;
+  return { dayNum, time, title, type: detectType(title) };
+}
+
+// ===================================================================
+//  Q&A ENGINE
+// ===================================================================
+
+function initAsk() {
+  const askForm = $('#ask-form');
+  const askInput = $('#ask-input');
+  const askAnswer = $('#ask-answer');
+  if (!askForm) return;
+
+  askForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    askAnswer.textContent = answerQuestion(askInput.value);
+  });
+}
+
+function answerQuestion(raw) {
+  const q = raw.toLowerCase().trim();
+  if (!q) return 'Ask me about places, travel days, flexible time, hotels, or suggestions.';
+
+  if (q.match(/how many|how long|number of/)) {
+    const placeKey = findPlace(q);
+    if (placeKey) {
+      const place = trip.places[placeKey];
+      const placeDays = trip.days.filter(d => d.placeKey === placeKey);
+      const routeStops = trip.route.filter(r => r.key === placeKey);
+      const totalNights = routeStops.reduce((sum, r) => sum + r.nights, 0);
+      return `You have ${placeDays.length} day${placeDays.length > 1 ? 's' : ''} and ${totalNights} night${totalNights > 1 ? 's' : ''} in ${place.name}.`;
+    }
+    return `The trip is ${trip.days.length} days total. Ask about a specific place for details.`;
+  }
+
+  const dayMatch = q.match(/(?:day|#)\s*(\d+)/);
+  if (dayMatch) {
+    const dayNum = parseInt(dayMatch[1]);
+    const day = trip.days.find(d => d.dayNum === dayNum);
+    if (day) {
+      const place = trip.places[day.placeKey];
+      const hotel = day.stay?.hotel || 'In transit';
+      return `Day ${dayNum} (${fmtDate.format(parseDate(day.date))}): ${day.title} in ${place.name}. Hotel: ${hotel}.`;
+    }
+    return `Day ${dayNum} doesn't exist. The trip is days 1–${trip.days.length}.`;
+  }
+
+  if (q.includes('hotel') || q.includes('stay') || q.includes('where')) {
+    return trip.days.filter(d => d.stay?.hotel).map(d => `${fmtDate.format(parseDate(d.date))}: ${d.stay.hotel}`).join(' | ') || 'No hotel info.';
+  }
+
+  if (q.includes('cost') || q.includes('budget') || q.includes('price')) {
+    return trip.bookings
+      .filter(b => b.details.some(([k]) => k === 'Cost'))
+      .map(b => `${b.title}: ${b.details.find(([k]) => k === 'Cost')[1]}`)
+      .join(' | ') || 'No cost info found.';
+  }
+
+  return 'Try: "how many days in Kyoto?", "what hotel?", "day 5", or "costs"';
+}
+
+function findPlace(q) {
+  const entries = Object.entries(trip.places);
+  for (const [key, place] of entries) {
+    if (key === 'transit' || key === 'home') continue;
+    if (q.includes(key) || q.includes(place.name.toLowerCase())) return key;
+  }
+  return null;
+}
+
+// ===================================================================
+//  STICKY NAV & MOBILE NAV
 // ===================================================================
 
 function initStickyNav() {
   const hero = $('#top');
+  const stickyNav = $('#sticky-nav');
   if (!hero || !stickyNav) return;
 
   const observer = new IntersectionObserver(([entry]) => {
     stickyNav.classList.toggle('visible', !entry.isIntersecting);
   }, { threshold: 0, rootMargin: '-60px 0px 0px 0px' });
-
   observer.observe(hero);
 
   const sections = ['route', 'itinerary', 'bookings', 'ask'];
@@ -1294,222 +1284,12 @@ function initStickyNav() {
       const el = document.getElementById(id);
       if (el && el.getBoundingClientRect().top <= 120) current = id;
     }
-    snavLinks.forEach(link => {
-      link.classList.toggle('active', link.dataset.section === current);
-    });
+    snavLinks.forEach(link => link.classList.toggle('active', link.dataset.section === current));
   }
 
   let st;
-  window.addEventListener('scroll', () => {
-    clearTimeout(st);
-    st = setTimeout(updateActive, 60);
-  }, { passive: true });
+  window.addEventListener('scroll', () => { clearTimeout(st); st = setTimeout(updateActive, 60); }, { passive: true });
 }
-
-// ===================================================================
-//  FILTERS
-// ===================================================================
-
-$$('.filter-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    $$('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderDays(btn.dataset.filter);
-  });
-});
-
-// ===================================================================
-//  Q&A ENGINE
-// ===================================================================
-
-askForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  askAnswer.textContent = answerQuestion(askInput.value);
-});
-
-function answerQuestion(raw) {
-  const q = raw.toLowerCase().trim();
-  if (!q) return 'Ask me about cities, travel days, flexible time, hotels, or suggestions.';
-
-  if (q.match(/how many|how long|number of/)) {
-    const city = findCity(q);
-    if (city) {
-      const cityDays = DAYS.filter(d => d.cityKey === city);
-      const routeStops = ROUTE.filter(r => r.key === city);
-      const totalNights = routeStops.reduce((sum, r) => sum + r.nights, 0);
-      const dateList = cityDays.map(d => fmtDate.format(parseDate(d.date))).join(', ');
-      return `You have ${cityDays.length} day${cityDays.length > 1 ? 's' : ''} and ${totalNights} night${totalNights > 1 ? 's' : ''} in ${CITIES[city].name}: ${dateList}.`;
-    }
-    if (q.includes('city') || q.includes('cities') || q.includes('stop')) {
-      return 'The trip covers 5 cities: Tokyo (5 days/4+1 nights), Mt. Fuji (1 day/1 night), Kyoto (2 days/2 nights), Kobe (2 days/2 nights), Hiroshima (3 days/3 nights).';
-    }
-    return 'The trip is 15 days total (Jun 9-23). Ask about a specific city for details.';
-  }
-
-  const dayMatch = q.match(/(?:day|#)\s*(\d+)/);
-  if (dayMatch && !q.includes('how many')) {
-    const dayNum = parseInt(dayMatch[1]);
-    const day = DAYS.find(d => d.dayNum === dayNum);
-    if (day) {
-      const c = CITIES[day.cityKey];
-      const acts = [...day.attractions, ...day.events].slice(0, 4).join(', ');
-      const hotel = day.hotel?.name || 'In transit';
-      return `Day ${dayNum} (${fmtDate.format(parseDate(day.date))}): ${day.title} in ${c.name}. Hotel: ${hotel}. Activities: ${acts}.`;
-    }
-    return `Day ${dayNum} doesn't exist. The trip is days 1–15.`;
-  }
-
-  if (q.includes('confirm') || q.includes('reservation') || q.includes('booking number')) {
-    const terms = [
-      ['flight', 'United'], ['united', 'United'], ['aloft', 'Aloft'], ['ginza', 'Aloft'],
-      ['toranomon', 'Toranomon'], ['ubuya', 'UBUYA'], ['fuji', 'UBUYA'],
-      ['ace', 'Ace'], ['kyoto', 'Ace'], ['crowne', 'ANA Crowne'], ['kobe', 'ANA Crowne'],
-      ['hilton', 'Hilton'], ['hiroshima', 'Hilton'],
-    ];
-    const match = terms.find(([t]) => q.includes(t));
-    const results = match
-      ? BOOKINGS.filter(b => b.title.includes(match[1]))
-      : BOOKINGS.filter(b => b.details.some(([k]) => k === 'Confirmation'));
-    return results.map(b => {
-      const conf = b.details.find(([k]) => k === 'Confirmation');
-      return conf ? `${b.title}: ${conf[1]}` : '';
-    }).filter(Boolean).join(' | ') || 'No confirmation found for that term.';
-  }
-
-  if (q.includes('check in') || q.includes('check-in') || q.includes('checkin') || q.includes('check out') || q.includes('checkout')) {
-    const city = findCity(q);
-    const matchDays = city
-      ? DAYS.filter(d => d.cityKey === city && d.hotel?.checkin)
-      : DAYS.filter(d => d.hotel?.checkin);
-    return matchDays.map(d => {
-      const h = d.hotel;
-      return `${fmtDate.format(parseDate(d.date))}: ${h.name} — in ${h.checkin}, out ${h.checkout}`;
-    }).join(' | ') || 'No check-in info found.';
-  }
-
-  if (q.match(/what hotel|where.*stay|where.*sleep|which hotel|hotel in|where.*hotel/)) {
-    const city = findCity(q);
-    if (city) {
-      const hotels = [...new Set(
-        DAYS.filter(d => d.cityKey === city && d.hotel?.name)
-          .map(d => d.hotel.name)
-      )];
-      if (hotels.length) return `In ${CITIES[city].name}: ${hotels.join(', then ')}.`;
-    }
-    const allHotels = BOOKINGS.filter(b => b.icon === 'hotel')
-      .map(b => `${b.title} (${b.details.find(([k]) => k === 'Dates')?.[1] || ''})`)
-      .join(' | ');
-    return allHotels || 'No hotel info found.';
-  }
-
-  if (q.includes('leave') || q.includes('transfer') || q.includes('train') || q.includes('flight') || q.includes('shinkansen') || q.includes('travel')) {
-    const travelDays = DAYS.filter(d => d.transport.length > 0);
-    const city = findCity(q);
-    const results = city ? travelDays.filter(d => d.cityKey === city || d.title.toLowerCase().includes(city)) : travelDays;
-    return results.map(d => `${fmtDate.format(parseDate(d.date))}: ${d.transport.slice(0, 2).join(', ')}`).join(' | ') || 'No travel details found.';
-  }
-
-  const city = findCity(q);
-  if (city) {
-    const matches = DAYS.filter(d => d.cityKey === city);
-    return matches.map(d => `${fmtDate.format(parseDate(d.date))}: ${d.title} — ${d.attractions.slice(0, 3).join(', ')}`).join(' | ') || `No days found for "${city}".`;
-  }
-
-  if (q.includes('flex') || q.includes('open') || q.includes('free') || q.includes('buffer')) {
-    const flexDays = DAYS.filter(d =>
-      d.attractions.some(a => /flexible|pending|add|buffer|optional|free|open/i.test(a)) || d.attractions.length <= 2
-    );
-    return flexDays.length
-      ? 'Flexible days: ' + flexDays.map(d => `${fmtDate.format(parseDate(d.date))} (${d.title})`).join(', ')
-      : 'All days currently have planned activities.';
-  }
-
-  if (q.includes('suggest') || q.includes('recommend') || q.includes('idea') || q.includes('kid') || q.includes('tip')) {
-    return 'Suggestions: Keep one anchor activity per day plus a flexible backup. In Kyoto, Fushimi Inari is best early morning. Miyajima depends on tides. For rainy days in Tokyo, try TeamLab Borderless or a depachika food hall.';
-  }
-
-  if (q.includes('hotel') || q.includes('stay') || q.includes('where')) {
-    return DAYS.filter(d => d.hotel).map(d => `${fmtDate.format(parseDate(d.date))}: ${d.hotel.name}`).join(' | ');
-  }
-
-  if (q.includes('cost') || q.includes('price') || q.includes('budget') || q.includes('spend') || q.includes('money')) {
-    return 'Costs: Flights = 805,400 miles + $101.06 | Toranomon Hills = $862.20 | UBUYA = $750.59 | Ace Kyoto = $660.61 | ANA Kobe = $246.40 | Aloft Ginza = 113K pts | Hilton Hiroshima = 177K pts. Total cash: ~$2,519.80 + miles/points.';
-  }
-
-  if (q.includes('when') || q.includes('what time') || q.includes('arrive') || q.includes('depart')) {
-    if (q.includes('arrive') || q.includes('land')) {
-      return 'You arrive in Japan on Jun 10 at 2:55 PM JST (UA 837 into NRT). Airport transfer to Ginza for first hotel.';
-    }
-    if (q.includes('depart') || q.includes('leave japan') || q.includes('go home') || q.includes('fly home')) {
-      return 'Return flight is Jun 23: UA 838 departing NRT at 5:25 PM JST, arriving SFO 11:00 AM PDT same day.';
-    }
-  }
-
-  return 'I can help with: days per city, hotel info, confirmations, check-in times, travel logistics, flexible days, costs, and suggestions. Try asking about a specific city or "how many days in Hiroshima."';
-}
-
-function findCity(q) {
-  const map = [
-    ['tokyo', 'tokyo'], ['ginza', 'tokyo'], ['toranomon', 'tokyo'], ['shibuya', 'tokyo'],
-    ['shinjuku', 'tokyo'], ['asakusa', 'tokyo'], ['harajuku', 'tokyo'], ['skytree', 'tokyo'],
-    ['fuji', 'fuji'], ['kawaguchi', 'fuji'], ['ubuya', 'fuji'],
-    ['kyoto', 'kyoto'], ['ace hotel', 'kyoto'], ['kinkaku', 'kyoto'], ['arashiyama', 'kyoto'],
-    ['fushimi', 'kyoto'], ['gion', 'kyoto'],
-    ['kobe', 'kobe'], ['nankinmachi', 'kobe'],
-    ['hiroshima', 'hiroshima'], ['miyajima', 'hiroshima'], ['peace', 'hiroshima'],
-  ];
-  const match = map.find(([term]) => q.includes(term));
-  return match ? match[1] : null;
-}
-
-// ===================================================================
-//  NOTIFICATIONS
-// ===================================================================
-
-notifyBtn.addEventListener('click', async () => {
-  if (!('Notification' in window)) {
-    notifyStatus.textContent = 'This browser does not support notifications.';
-    return;
-  }
-  const perm = await Notification.requestPermission();
-  if (perm !== 'granted') {
-    notifyStatus.textContent = 'Notifications were not enabled.';
-    return;
-  }
-  notifyStatus.textContent = "Enabled! You'll get reminders for upcoming events.";
-  notifyBtn.textContent = 'Enabled';
-  notifyBtn.disabled = true;
-
-  setTimeout(() => {
-    new Notification('Raahi — Japan 2026', {
-      body: "Reminders are active. You'll be notified before check-ins and travel days.",
-    });
-  }, 2000);
-  scheduleUpcoming();
-});
-
-function scheduleUpcoming() {
-  const now = Date.now();
-  DAYS.forEach((day) => {
-    const dayDate = parseDate(day.date).getTime();
-    const notify24h = dayDate - now - 86400000;
-    if (notify24h > 0 && notify24h < 15 * 86400000) {
-      setTimeout(() => {
-        new Notification(`Tomorrow: ${day.title}`, {
-          body: day.transport.length
-            ? `Travel day — ${day.transport[0]}`
-            : day.hotel?.name
-              ? `Stay at ${day.hotel.name}`
-              : day.attractions[0] || 'Check your itinerary',
-        });
-      }, Math.min(notify24h, 2147483647));
-    }
-  });
-}
-
-// ===================================================================
-//  MOBILE NAV
-// ===================================================================
 
 function updateMobileNav() {
   const sections = ['route', 'itinerary', 'bookings', 'ask'];
@@ -1518,30 +1298,165 @@ function updateMobileNav() {
     const el = document.getElementById(id);
     if (el && el.getBoundingClientRect().top <= 120) current = id;
   }
-  $$('.mnav-item').forEach((item) => {
-    item.classList.toggle('active', item.dataset.section === current);
+  $$('.mnav-item').forEach((item) => item.classList.toggle('active', item.dataset.section === current));
+}
+
+// ===================================================================
+//  NOTIFICATIONS
+// ===================================================================
+
+function initNotifications() {
+  const notifyBtn = $('#notify-btn');
+  const notifyStatus = $('#notify-status');
+  if (!notifyBtn) return;
+
+  notifyBtn.addEventListener('click', async () => {
+    if (!('Notification' in window)) {
+      notifyStatus.textContent = 'This browser does not support notifications.';
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      notifyStatus.textContent = 'Notifications were not enabled.';
+      return;
+    }
+    notifyStatus.textContent = "Enabled! You'll get reminders for upcoming events.";
+    notifyBtn.textContent = 'Enabled';
+    notifyBtn.disabled = true;
   });
 }
 
-let scrollTimer;
-window.addEventListener('scroll', () => {
-  clearTimeout(scrollTimer);
-  scrollTimer = setTimeout(updateMobileNav, 60);
-}, { passive: true });
+// ===================================================================
+//  EXPORT / IMPORT UI
+// ===================================================================
+
+function initExportImport() {
+  const exportBtn = $('#export-btn');
+  const importInput = $('#import-input');
+
+  if (exportBtn) exportBtn.addEventListener('click', exportTrip);
+  if (importInput) {
+    importInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) importTrip(file);
+    });
+  }
+}
+
+// ===================================================================
+//  TOAST NOTIFICATIONS
+// ===================================================================
+
+function showToast(msg) {
+  const existing = $('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 2500);
+}
+
+function showUndoToast(msg, undoFn) {
+  const existing = $('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-undo';
+  toast.innerHTML = `<span>${msg}</span><button class="toast-undo-btn">Undo</button>`;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+
+  let undone = false;
+  toast.querySelector('.toast-undo-btn').addEventListener('click', () => {
+    undone = true;
+    undoFn();
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  });
+
+  setTimeout(() => {
+    if (!undone) {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 5000);
+}
 
 // ===================================================================
 //  INIT
 // ===================================================================
 
-renderCityNav();
-renderDays();
-renderBookings();
-renderCountdown();
-initStickyNav();
-initBulkPaste();
-updateMobileNav();
+async function init() {
+  // Load trip data: localStorage override > fetch
+  trip = loadTrip();
 
-setInterval(() => {
+  if (!trip) {
+    try {
+      const res = await fetch('./trip.json');
+      trip = await res.json();
+      saveTrip();
+    } catch (err) {
+      document.body.innerHTML = '<div style="padding:40px;text-align:center"><h2>Failed to load trip data</h2><p>Could not fetch trip.json</p></div>';
+      return;
+    }
+  }
+
+  userEdits = loadEdits();
+
+  // Migrate from v3 edits if present
+  const v3Edits = localStorage.getItem('raahi_v3_items');
+  if (v3Edits && !localStorage.getItem('raahi_v4_migrated')) {
+    try {
+      const old = JSON.parse(v3Edits);
+      Object.entries(old).forEach(([idx, edits]) => {
+        if (edits.added?.length) {
+          ensureEdits(parseInt(idx));
+          edits.added.forEach(item => {
+            if (item.time) {
+              userEdits[parseInt(idx)].addedSchedule.push(item);
+            } else {
+              userEdits[parseInt(idx)].addedWishlist.push(item);
+            }
+          });
+        }
+      });
+      saveEdits();
+      localStorage.setItem('raahi_v4_migrated', '1');
+    } catch {}
+  }
+
+  // Render everything
+  renderPlaces();
+  renderRouteMap();
+  renderFilterBar();
+  renderDayList('all');
+  renderBookings();
   renderCountdown();
-  highlightToday();
-}, 3600000);
+  initStickyNav();
+  initBulkPaste();
+  initAddPlaceModal();
+  initAsk();
+  initNotifications();
+  initExportImport();
+  updateMobileNav();
+
+  // Panel close handlers
+  const panel = $('#day-panel');
+  if (panel) {
+    panel.querySelector('.day-panel-close').addEventListener('click', closeDayPanel);
+    panel.querySelector('.day-panel-backdrop').addEventListener('click', closeDayPanel);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && panel.classList.contains('open')) closeDayPanel();
+    });
+  }
+
+  // Mobile nav scroll update
+  let scrollTimer;
+  window.addEventListener('scroll', () => { clearTimeout(scrollTimer); scrollTimer = setTimeout(updateMobileNav, 60); }, { passive: true });
+
+  // Periodic updates
+  setInterval(() => { renderCountdown(); highlightToday(); }, 3600000);
+}
+
+init();

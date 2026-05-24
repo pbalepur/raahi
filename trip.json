@@ -1,0 +1,542 @@
+{
+  "meta": {
+    "name": "Japan",
+    "season": "Summer 2026",
+    "startDate": "2026-06-09",
+    "endDate": "2026-06-23",
+    "duration": 15,
+    "travelers": 2,
+    "hero": "hero.jpg"
+  },
+  "places": {
+    "transit": { "name": "In Transit", "color": "#78716c", "bg": "#f5f0e8", "emoji": "✈️", "img": "", "lat": null, "lng": null },
+    "tokyo":   { "name": "Tokyo",      "color": "#1e3a5f", "bg": "#e8eef5", "emoji": "🗼", "img": "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400&h=250&fit=crop", "lat": 35.6762, "lng": 139.6503 },
+    "fuji":    { "name": "Mt. Fuji",   "color": "#4d7c0f", "bg": "#f0f5e8", "emoji": "🗻", "img": "https://images.unsplash.com/photo-1490806843957-31f4c9a91c65?w=400&h=250&fit=crop", "lat": 35.3606, "lng": 138.7274 },
+    "kyoto":   { "name": "Kyoto",      "color": "#c53d2d", "bg": "#fef2f0", "emoji": "⛩️", "img": "https://images.unsplash.com/photo-1545569341-9eb8b30979d9?w=400&h=250&fit=crop", "lat": 35.0116, "lng": 135.7681 },
+    "kobe":    { "name": "Kobe",       "color": "#b8860b", "bg": "#fdf6e3", "emoji": "🌉", "img": "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400&h=250&fit=crop", "lat": 34.6901, "lng": 135.1956 },
+    "hiroshima": { "name": "Hiroshima", "color": "#0d6e6e", "bg": "#e6f5f5", "emoji": "🕊️", "img": "https://images.unsplash.com/photo-1526481280693-3bfa7568e0f3?w=400&h=250&fit=crop", "lat": 34.3853, "lng": 132.4553 },
+    "home":    { "name": "Home",       "color": "#78716c", "bg": "#f5f0e8", "emoji": "🏠", "img": "", "lat": null, "lng": null }
+  },
+  "route": [
+    { "city": "Tokyo",     "dates": "Jun 10–14", "nights": 4, "key": "tokyo" },
+    { "city": "Mt. Fuji",  "dates": "Jun 14–15", "nights": 1, "key": "fuji" },
+    { "city": "Kyoto",     "dates": "Jun 15–17", "nights": 2, "key": "kyoto" },
+    { "city": "Kobe",      "dates": "Jun 17–19", "nights": 2, "key": "kobe" },
+    { "city": "Hiroshima", "dates": "Jun 19–22", "nights": 3, "key": "hiroshima" },
+    { "city": "Tokyo",     "dates": "Jun 22–23", "nights": 1, "key": "tokyo" }
+  ],
+  "transitTimes": {
+    "tokyo→kawaguchiko":   { "mode": "bus",   "label": "Highway bus / train via Otsuki", "min": 120 },
+    "kawaguchiko→mishima": { "mode": "bus",   "label": "Bus to Mishima",                 "min": 90  },
+    "mishima→kyoto":       { "mode": "train", "label": "Shinkansen Hikari",              "min": 110 },
+    "tokyo→kyoto":         { "mode": "train", "label": "Shinkansen Nozomi",              "min": 135 },
+    "kyoto→kobe":          { "mode": "train", "label": "JR Special Rapid",               "min": 50  },
+    "kobe→hiroshima":      { "mode": "train", "label": "Shinkansen",                     "min": 70  },
+    "hiroshima→tokyo":     { "mode": "train", "label": "Shinkansen Nozomi",              "min": 240 },
+    "hiroshima→miyajima":  { "mode": "train", "label": "JR + Ferry",                     "min": 50  }
+  },
+  "days": [
+    {
+      "date": "2026-06-09", "dayNum": 1,
+      "title": "Departure Day",
+      "placeKey": "transit",
+      "stay": null,
+      "travel": {
+        "summary": "SFO → NRT (UA 837)",
+        "details": "Depart 12:20 PM PDT, Arrive Jun 10 2:55 PM JST",
+        "confirmation": "HC68FX",
+        "mode": "flight",
+        "url": "https://www.united.com/en/us/manageres/mytrips"
+      },
+      "schedule": [
+        { "id": "s-1-1", "type": "flight", "time": "12:20", "ampm": null, "title": "Depart SFO", "notes": "UA 837 · Boeing 777-300ER · United Polaris", "confirmation": "HC68FX", "status": "confirmed", "url": "https://www.united.com/en/us/manageres/mytrips" },
+        { "id": "s-1-2", "type": "flight", "time": "14:55", "ampm": null, "title": "Arrive NRT (next day)", "notes": "Jun 10, 2:55 PM JST", "status": "confirmed" }
+      ],
+      "wishlist": [
+        { "id": "w-1-1", "type": "buffer", "title": "Travel day — settle packing, airport timing", "notes": "" }
+      ],
+      "links": [{ "label": "United", "url": "https://www.united.com/en/us/manageres/mytrips" }]
+    },
+    {
+      "date": "2026-06-10", "dayNum": 2,
+      "title": "Arrive in Japan",
+      "placeKey": "tokyo",
+      "stay": {
+        "hotel": "Aloft by Marriott Tokyo Ginza",
+        "confirmation": "73477725",
+        "checkin": "3:00 PM", "checkout": "12:00 PM",
+        "room": "Guest Room, 1 King",
+        "address": "6-14-3 Ginza, Chuo-ku, Tokyo",
+        "phone": "+81-3-6278-8122",
+        "cost": "113,000 Marriott points",
+        "url": "https://www.marriott.com/en-us/hotels/tyoal-aloft-tokyo-ginza/overview/"
+      },
+      "travel": {
+        "summary": "Airport transfer to Ginza",
+        "details": "UA 837 arrives NRT 2:55 PM",
+        "mode": "taxi"
+      },
+      "schedule": [
+        { "id": "s-2-1", "type": "flight", "time": "14:55", "ampm": null, "title": "Arrive NRT", "notes": "UA 837 lands 2:55 PM JST", "status": "confirmed" },
+        { "id": "s-2-2", "type": "taxi", "time": null, "ampm": "PM", "title": "Airport transfer to Ginza", "notes": "", "status": "tentative" },
+        { "id": "s-2-3", "type": "hotel", "time": "15:00", "ampm": null, "title": "Check in · Aloft Tokyo Ginza", "notes": "Guest Room, 1 King · 6-14-3 Ginza", "confirmation": "73477725", "status": "confirmed", "url": "https://www.marriott.com/en-us/hotels/tyoal-aloft-tokyo-ginza/overview/" }
+      ],
+      "wishlist": [
+        { "id": "w-2-1", "type": "food", "title": "Easy arrival meal", "notes": "" },
+        { "id": "w-2-2", "type": "walk", "title": "Neighborhood walk near hotel", "notes": "" },
+        { "id": "w-2-3", "type": "food", "title": "Ikebukuro dining", "notes": "Department stores, ramen, themed cafes" }
+      ],
+      "links": [
+        { "label": "Marriott", "url": "https://www.marriott.com/en-us/hotels/tyoal-aloft-tokyo-ginza/overview/" }
+      ]
+    },
+    {
+      "date": "2026-06-11", "dayNum": 3,
+      "title": "Tokyo Day",
+      "placeKey": "tokyo",
+      "stay": {
+        "hotel": "Aloft by Marriott Tokyo Ginza",
+        "confirmation": "73477725",
+        "room": "Guest Room, 1 King"
+      },
+      "travel": null,
+      "schedule": [],
+      "wishlist": [
+        { "id": "w-3-1", "type": "attraction", "title": "Nijubashi Bridge (Imperial Palace)", "notes": "" },
+        { "id": "w-3-2", "type": "attraction", "title": "Tokyo Station & Marunouchi", "notes": "" },
+        { "id": "w-3-3", "type": "attraction", "title": "Hibiya Park", "notes": "" },
+        { "id": "w-3-4", "type": "event", "title": "Kabukiza Theatre", "notes": "" },
+        { "id": "w-3-5", "type": "shopping", "title": "Tsukiji Outer Market", "notes": "" },
+        { "id": "w-3-6", "type": "shopping", "title": "Ginza district", "notes": "" },
+        { "id": "w-3-7", "type": "attraction", "title": "Meiji Shrine", "notes": "" },
+        { "id": "w-3-8", "type": "shopping", "title": "Harajuku (Takeshita Street, Omotesando)", "notes": "" },
+        { "id": "w-3-9", "type": "attraction", "title": "Tokyo Skytree", "notes": "" },
+        { "id": "w-3-10", "type": "attraction", "title": "Asakusa (Senso-ji Temple, Nakamise Street)", "notes": "" }
+      ],
+      "links": []
+    },
+    {
+      "date": "2026-06-12", "dayNum": 4,
+      "title": "Tokyo — Hotel Switch",
+      "placeKey": "tokyo",
+      "stay": {
+        "hotel": "Hotel Toranomon Hills",
+        "confirmation": "9092720951162",
+        "checkin": "3:00 PM", "checkout": "12:00 PM",
+        "room": "Tower View, Shower, 1 King Bed",
+        "address": "2-6-4 Toranomon, Tokyo",
+        "phone": "+81-3-6834-5678",
+        "cost": "$862.20",
+        "url": "https://www.hyatt.com/unbound-collection/en-US/tyoub-hotel-toranomon-hills"
+      },
+      "travel": null,
+      "schedule": [
+        { "id": "s-4-1", "type": "hotel", "time": "12:00", "ampm": null, "title": "Check out · Aloft Tokyo Ginza", "notes": "", "status": "confirmed" },
+        { "id": "s-4-2", "type": "taxi", "time": null, "ampm": "PM", "title": "Move bags: Ginza → Toranomon", "notes": "", "status": "tentative" },
+        { "id": "s-4-3", "type": "hotel", "time": "15:00", "ampm": null, "title": "Check in · Hotel Toranomon Hills", "notes": "Tower View, 1 King Bed · 2-6-4 Toranomon", "confirmation": "9092720951162", "status": "confirmed", "url": "https://www.hyatt.com/unbound-collection/en-US/tyoub-hotel-toranomon-hills" }
+      ],
+      "wishlist": [
+        { "id": "w-4-1", "type": "attraction", "title": "Tokyo Skytree", "notes": "" },
+        { "id": "w-4-2", "type": "attraction", "title": "Asakusa", "notes": "" },
+        { "id": "w-4-3", "type": "shopping", "title": "Kappabashi Kitchen Town", "notes": "" },
+        { "id": "w-4-4", "type": "attraction", "title": "Harajuku & Meiji Shrine (if not yet visited)", "notes": "" }
+      ],
+      "links": [
+        { "label": "Hyatt", "url": "https://www.hyatt.com/unbound-collection/en-US/tyoub-hotel-toranomon-hills" }
+      ]
+    },
+    {
+      "date": "2026-06-13", "dayNum": 5,
+      "title": "Tokyo Day",
+      "placeKey": "tokyo",
+      "stay": {
+        "hotel": "Hotel Toranomon Hills",
+        "confirmation": "9092720951162",
+        "room": "Tower View, 1 King"
+      },
+      "travel": null,
+      "schedule": [],
+      "wishlist": [
+        { "id": "w-5-1", "type": "attraction", "title": "Kawagoe — Little Edo", "notes": "" },
+        { "id": "w-5-2", "type": "attraction", "title": "Kurazukuri historic district", "notes": "" },
+        { "id": "w-5-3", "type": "attraction", "title": "Toki no Kane bell tower", "notes": "" },
+        { "id": "w-5-4", "type": "event", "title": "SWE/SSO concert at Beethoven Hall (Musashino Academia Musicae)", "notes": "" },
+        { "id": "w-5-5", "type": "event", "title": "Ikebukuro Global Ring performance", "notes": "" }
+      ],
+      "links": []
+    },
+    {
+      "date": "2026-06-14", "dayNum": 6,
+      "title": "Leave for Mt. Fuji",
+      "placeKey": "fuji",
+      "stay": {
+        "hotel": "UBUYA",
+        "confirmation": "T790A13DD9795",
+        "checkin": "3:00 PM", "checkout": "11:00 AM",
+        "room": "Deluxe Room with Open-Air Bath, 90sqm, Mt. Fuji View",
+        "address": "10 Asakawa, Fujikawaguchiko-cho",
+        "cost": "$750.59 (non-refundable)",
+        "url": "https://www.ubuya.co.jp/en/"
+      },
+      "travel": {
+        "summary": "Tokyo → Fujikawaguchiko",
+        "details": "Train or bus via Otsuki",
+        "mode": "train"
+      },
+      "schedule": [
+        { "id": "s-6-1", "type": "hotel", "time": "12:00", "ampm": null, "title": "Check out · Hotel Toranomon Hills", "notes": "", "status": "confirmed" },
+        { "id": "s-6-2", "type": "train", "time": null, "ampm": "PM", "title": "Tokyo → Fujikawaguchiko", "notes": "Train or bus via Otsuki", "status": "tentative" },
+        { "id": "s-6-3", "type": "hotel", "time": "15:00", "ampm": null, "title": "Check in · UBUYA", "notes": "Deluxe Room, Open-Air Bath, 90sqm, Mt. Fuji View", "confirmation": "T790A13DD9795", "status": "confirmed", "url": "https://www.ubuya.co.jp/en/" }
+      ],
+      "wishlist": [
+        { "id": "w-6-1", "type": "attraction", "title": "Mt. Fuji Fifth Station", "notes": "" },
+        { "id": "w-6-2", "type": "attraction", "title": "Lake Kawaguchi viewpoints", "notes": "" },
+        { "id": "w-6-3", "type": "attraction", "title": "Ryokan-style slow evening with onsen", "notes": "" },
+        { "id": "w-6-4", "type": "event", "title": "Stellar Theater — Mt. Fuji Music Festival", "notes": "" }
+      ],
+      "links": [
+        { "label": "UBUYA", "url": "https://www.ubuya.co.jp/en/" }
+      ]
+    },
+    {
+      "date": "2026-06-15", "dayNum": 7,
+      "title": "Leave for Kyoto",
+      "placeKey": "kyoto",
+      "stay": {
+        "hotel": "Ace Hotel Kyoto",
+        "confirmation": "9146SG486666",
+        "checkin": "3:00 PM", "checkout": "12:00 PM",
+        "room": "Standard King",
+        "address": "245-2 Kurumaya-cho, Nakagyo-ku, Kyoto",
+        "cost": "$660.61",
+        "url": "https://acehotel.com/kyoto/"
+      },
+      "travel": {
+        "summary": "Mt. Fuji area → Kyoto",
+        "details": "Rail route (seat details pending)",
+        "mode": "train"
+      },
+      "schedule": [
+        { "id": "s-7-1", "type": "hotel", "time": "11:00", "ampm": null, "title": "Check out · UBUYA", "notes": "", "status": "confirmed" },
+        { "id": "s-7-2", "type": "train", "time": null, "ampm": "AM", "title": "Mt. Fuji area → Kyoto", "notes": "Rail route (seat details pending)", "status": "tentative" },
+        { "id": "s-7-3", "type": "hotel", "time": "15:00", "ampm": null, "title": "Check in · Ace Hotel Kyoto", "notes": "Standard King · 245-2 Kurumaya-cho, Nakagyo-ku", "confirmation": "9146SG486666", "status": "confirmed", "url": "https://acehotel.com/kyoto/" }
+      ],
+      "wishlist": [
+        { "id": "w-7-1", "type": "attraction", "title": "Hakone-En (Lake Ashi, Komagatake Ropeway)", "notes": "" },
+        { "id": "w-7-2", "type": "attraction", "title": "Kawaguchiko Music Forest Museum", "notes": "" },
+        { "id": "w-7-3", "type": "attraction", "title": "Oshino Hakkai", "notes": "" },
+        { "id": "w-7-4", "type": "walk", "title": "Arrival stroll in Kyoto", "notes": "" },
+        { "id": "w-7-5", "type": "food", "title": "First Kyoto dinner", "notes": "" }
+      ],
+      "links": [
+        { "label": "Ace Hotel", "url": "https://acehotel.com/kyoto/" }
+      ]
+    },
+    {
+      "date": "2026-06-16", "dayNum": 8,
+      "title": "Kyoto Day",
+      "placeKey": "kyoto",
+      "stay": {
+        "hotel": "Ace Hotel Kyoto",
+        "confirmation": "9146SG486666",
+        "room": "Standard King"
+      },
+      "travel": null,
+      "schedule": [],
+      "wishlist": [
+        { "id": "w-8-1", "type": "attraction", "title": "Kinkaku-ji (Golden Pavilion)", "notes": "" },
+        { "id": "w-8-2", "type": "attraction", "title": "Kiyomizu-dera", "notes": "" },
+        { "id": "w-8-3", "type": "attraction", "title": "Nijo Castle", "notes": "" },
+        { "id": "w-8-4", "type": "attraction", "title": "Sanjusangen-do", "notes": "" },
+        { "id": "w-8-5", "type": "attraction", "title": "Gion district", "notes": "" },
+        { "id": "w-8-6", "type": "attraction", "title": "Arashiyama Bamboo Grove (PM)", "notes": "" }
+      ],
+      "links": []
+    },
+    {
+      "date": "2026-06-17", "dayNum": 9,
+      "title": "Leave for Kobe",
+      "placeKey": "kobe",
+      "stay": {
+        "hotel": "ANA Crowne Plaza Kobe",
+        "confirmation": "2462970815",
+        "checkin": "3:00 PM", "checkout": "11:00 AM",
+        "room": "Premium Room, 1 King Bed, City View",
+        "address": "1-Chome, Kitano-cho, Chuo-ku, Kobe",
+        "cost": "$246.40",
+        "url": "https://www.ihg.com/crowneplaza/hotels/us/en/hyogo/osakb/hoteldetail"
+      },
+      "travel": {
+        "summary": "Kyoto → Kobe",
+        "details": "Train (seat details pending)",
+        "mode": "train"
+      },
+      "schedule": [
+        { "id": "s-9-1", "type": "hotel", "time": "12:00", "ampm": null, "title": "Check out · Ace Hotel Kyoto", "notes": "", "status": "confirmed" },
+        { "id": "s-9-2", "type": "train", "time": null, "ampm": "PM", "title": "Kyoto → Kobe", "notes": "JR Special Rapid ~50min", "status": "tentative" },
+        { "id": "s-9-3", "type": "hotel", "time": "15:00", "ampm": null, "title": "Check in · ANA Crowne Plaza Kobe", "notes": "Premium Room, 1 King, City View · 1-Chome Kitano-cho", "confirmation": "2462970815", "status": "confirmed", "url": "https://www.ihg.com/crowneplaza/hotels/us/en/hyogo/osakb/hoteldetail" }
+      ],
+      "wishlist": [
+        { "id": "w-9-1", "type": "attraction", "title": "Fushimi Inari Taisha (morning, en route)", "notes": "" },
+        { "id": "w-9-2", "type": "food", "title": "Fushimi Sake District", "notes": "" },
+        { "id": "w-9-3", "type": "attraction", "title": "Arashiyama Bamboo Forest (if not covered Day 8)", "notes": "" },
+        { "id": "w-9-4", "type": "event", "title": "SWE/SSO Friendship Concert at Akashi Civic Hall", "notes": "With Takigawa Daini HS" }
+      ],
+      "links": [
+        { "label": "IHG", "url": "https://www.ihg.com/crowneplaza/hotels/us/en/hyogo/osakb/hoteldetail" }
+      ]
+    },
+    {
+      "date": "2026-06-18", "dayNum": 10,
+      "title": "Kobe Day",
+      "placeKey": "kobe",
+      "stay": {
+        "hotel": "ANA Crowne Plaza Kobe",
+        "confirmation": "2462970815",
+        "room": "Premium Room, 1 King, City View"
+      },
+      "travel": null,
+      "schedule": [],
+      "wishlist": [
+        { "id": "w-10-1", "type": "attraction", "title": "Kobe Chinatown (Nankinmachi)", "notes": "" },
+        { "id": "w-10-2", "type": "attraction", "title": "Kobe Harborland", "notes": "" },
+        { "id": "w-10-3", "type": "attraction", "title": "Meriken Park & Port Tower", "notes": "" },
+        { "id": "w-10-4", "type": "attraction", "title": "Optional: Zen experience or Awaji Island day trip", "notes": "" }
+      ],
+      "links": []
+    },
+    {
+      "date": "2026-06-19", "dayNum": 11,
+      "title": "Leave for Hiroshima",
+      "placeKey": "hiroshima",
+      "stay": {
+        "hotel": "Hilton Hiroshima",
+        "confirmation": "3465440877",
+        "checkin": "3:00 PM", "checkout": "12:00 PM",
+        "room": "King Premium Room",
+        "address": "11-12 Fujimicho, Naka-ku, Hiroshima",
+        "phone": "+81-82-243-2700",
+        "cost": "177,000 Hilton points",
+        "url": "https://www.hilton.com/en/hotels/hijshhi-hilton-hiroshima/"
+      },
+      "travel": {
+        "summary": "Kobe → Hiroshima",
+        "details": "Shinkansen (seat details pending)",
+        "mode": "train"
+      },
+      "schedule": [
+        { "id": "s-11-1", "type": "hotel", "time": "11:00", "ampm": null, "title": "Check out · ANA Crowne Plaza Kobe", "notes": "", "status": "confirmed" },
+        { "id": "s-11-2", "type": "train", "time": null, "ampm": "AM", "title": "Kobe → Hiroshima", "notes": "Shinkansen ~70min", "status": "tentative" },
+        { "id": "s-11-3", "type": "hotel", "time": "15:00", "ampm": null, "title": "Check in · Hilton Hiroshima", "notes": "King Premium Room · 11-12 Fujimicho, Naka-ku", "confirmation": "3465440877", "status": "confirmed", "url": "https://www.hilton.com/en/hotels/hijshhi-hilton-hiroshima/" }
+      ],
+      "wishlist": [
+        { "id": "w-11-1", "type": "attraction", "title": "Hiroshima Peace Memorial Park", "notes": "" },
+        { "id": "w-11-2", "type": "attraction", "title": "Atomic Bomb Dome (UNESCO)", "notes": "" },
+        { "id": "w-11-3", "type": "shopping", "title": "Hiroshima Station area (ekie, minamoa)", "notes": "" }
+      ],
+      "links": [
+        { "label": "Hilton", "url": "https://www.hilton.com/en/hotels/hijshhi-hilton-hiroshima/" }
+      ]
+    },
+    {
+      "date": "2026-06-20", "dayNum": 12,
+      "title": "Hiroshima Day",
+      "placeKey": "hiroshima",
+      "stay": {
+        "hotel": "Hilton Hiroshima",
+        "confirmation": "3465440877",
+        "room": "King Premium Room"
+      },
+      "travel": null,
+      "schedule": [],
+      "wishlist": [
+        { "id": "w-12-1", "type": "attraction", "title": "Peace Memorial area deeper visit", "notes": "" },
+        { "id": "w-12-2", "type": "food", "title": "Food hall or okonomiyaki plan", "notes": "" },
+        { "id": "w-12-3", "type": "event", "title": "SWE/SSO Peace Friendship Concert at Phoenix Concert Hall", "notes": "" },
+        { "id": "w-12-4", "type": "event", "title": "Choir performance at Jogakuin Girls HS", "notes": "" }
+      ],
+      "links": []
+    },
+    {
+      "date": "2026-06-21", "dayNum": 13,
+      "title": "Hiroshima — Miyajima",
+      "placeKey": "hiroshima",
+      "stay": {
+        "hotel": "Hilton Hiroshima",
+        "confirmation": "3465440877",
+        "room": "King Premium Room"
+      },
+      "travel": null,
+      "schedule": [],
+      "wishlist": [
+        { "id": "w-13-1", "type": "attraction", "title": "Miyajima Island (Itsukushima Shrine)", "notes": "" },
+        { "id": "w-13-2", "type": "attraction", "title": "Floating torii gate", "notes": "" },
+        { "id": "w-13-3", "type": "buffer", "title": "Keep tides & weather in mind for best views", "notes": "" },
+        { "id": "w-13-4", "type": "event", "title": "Hijiyama HS cultural exchange (music, paper crane making)", "notes": "" }
+      ],
+      "links": []
+    },
+    {
+      "date": "2026-06-22", "dayNum": 14,
+      "title": "Return to Tokyo",
+      "placeKey": "tokyo",
+      "stay": {
+        "hotel": "Tokyo overnight (details pending)"
+      },
+      "travel": {
+        "summary": "Hiroshima → Tokyo",
+        "details": "Shinkansen — long rail day (seat details pending)",
+        "mode": "train"
+      },
+      "schedule": [
+        { "id": "s-14-1", "type": "hotel", "time": "12:00", "ampm": null, "title": "Check out · Hilton Hiroshima", "notes": "", "status": "confirmed" },
+        { "id": "s-14-2", "type": "train", "time": null, "ampm": "PM", "title": "Hiroshima → Tokyo", "notes": "Shinkansen Nozomi ~4h", "status": "tentative" }
+      ],
+      "wishlist": [
+        { "id": "w-14-1", "type": "event", "title": "Tokyo Dome — professional baseball game", "notes": "" },
+        { "id": "w-14-2", "type": "food", "title": "Final Tokyo evening", "notes": "" }
+      ],
+      "links": []
+    },
+    {
+      "date": "2026-06-23", "dayNum": 15,
+      "title": "Fly Home",
+      "placeKey": "home",
+      "stay": null,
+      "travel": {
+        "summary": "NRT → SFO (UA 838)",
+        "details": "Depart 5:25 PM JST, Arrive 11:00 AM PDT (same day)",
+        "confirmation": "HC68FX",
+        "mode": "flight",
+        "url": "https://www.united.com/en/us/manageres/mytrips"
+      },
+      "schedule": [
+        { "id": "s-15-1", "type": "buffer", "time": null, "ampm": "AM", "title": "Airport transfer buffer", "notes": "", "status": "tentative" },
+        { "id": "s-15-2", "type": "flight", "time": "17:25", "ampm": null, "title": "Depart NRT", "notes": "UA 838 · Boeing 777-300ER · United Polaris", "confirmation": "HC68FX", "status": "confirmed", "url": "https://www.united.com/en/us/manageres/mytrips" }
+      ],
+      "wishlist": [
+        { "id": "w-15-1", "type": "buffer", "title": "Home arrival", "notes": "" }
+      ],
+      "links": [{ "label": "United", "url": "https://www.united.com/en/us/manageres/mytrips" }]
+    }
+  ],
+  "bookings": [
+    {
+      "type": "Flight", "icon": "plane",
+      "title": "United SFO ↔ NRT",
+      "colorKey": "transit",
+      "details": [
+        ["Confirmation", "HC68FX"],
+        ["Outbound", "UA 837 · Jun 9, 12:20 PM PDT"],
+        ["Arrival", "Jun 10, 2:55 PM JST"],
+        ["Return", "UA 838 · Jun 23, 5:25 PM JST"],
+        ["Home", "Jun 23, 11:00 AM PDT"],
+        ["Aircraft", "Boeing 777-300ER"],
+        ["Class", "United Polaris"],
+        ["Cost", "805,400 miles + $101.06"]
+      ],
+      "url": "https://www.united.com/en/us/manageres/mytrips"
+    },
+    {
+      "type": "Hotel · Tokyo", "icon": "hotel",
+      "title": "Aloft by Marriott Tokyo Ginza",
+      "colorKey": "tokyo",
+      "details": [
+        ["Confirmation", "73477725"],
+        ["Dates", "Jun 10–12 (2 nights)"],
+        ["Check in/out", "3:00 PM / 12:00 PM"],
+        ["Room", "Guest Room, 1 King"],
+        ["Address", "6-14-3 Ginza, Chuo-ku, Tokyo"],
+        ["Phone", "+81-3-6278-8122"],
+        ["Cost", "113,000 Marriott points"]
+      ],
+      "url": "https://www.marriott.com/en-us/hotels/tyoal-aloft-tokyo-ginza/overview/"
+    },
+    {
+      "type": "Hotel · Tokyo", "icon": "hotel",
+      "title": "Hotel Toranomon Hills",
+      "colorKey": "tokyo",
+      "details": [
+        ["Confirmation", "9092720951162"],
+        ["Dates", "Jun 12–14 (2 nights)"],
+        ["Check in/out", "3:00 PM / 12:00 PM"],
+        ["Room", "Tower View, Shower, 1 King Bed"],
+        ["Address", "2-6-4 Toranomon, Tokyo"],
+        ["Phone", "+81-3-6834-5678"],
+        ["Cost", "$862.20"]
+      ],
+      "url": "https://www.hyatt.com/unbound-collection/en-US/tyoub-hotel-toranomon-hills"
+    },
+    {
+      "type": "Hotel · Mt. Fuji", "icon": "hotel",
+      "title": "UBUYA",
+      "colorKey": "fuji",
+      "details": [
+        ["Confirmation", "T790A13DD9795"],
+        ["Dates", "Jun 14–15 (1 night)"],
+        ["Check in/out", "3:00 PM / 11:00 AM"],
+        ["Room", "Deluxe, Open-Air Bath, 90sqm, Mt. Fuji View"],
+        ["Address", "10 Asakawa, Fujikawaguchiko-cho"],
+        ["Phone", "0555-72-1145"],
+        ["Cost", "$750.59 (non-refundable)"]
+      ],
+      "url": "https://www.ubuya.co.jp/en/"
+    },
+    {
+      "type": "Hotel · Kyoto", "icon": "hotel",
+      "title": "Ace Hotel Kyoto",
+      "colorKey": "kyoto",
+      "details": [
+        ["Confirmation", "9146SG486666"],
+        ["Dates", "Jun 15–17 (2 nights)"],
+        ["Check in/out", "3:00 PM / 12:00 PM"],
+        ["Room", "Standard King"],
+        ["Address", "245-2 Kurumaya-cho, Nakagyo-ku, Kyoto"],
+        ["Cost", "$660.61"]
+      ],
+      "url": "https://acehotel.com/kyoto/"
+    },
+    {
+      "type": "Hotel · Kobe", "icon": "hotel",
+      "title": "ANA Crowne Plaza Kobe",
+      "colorKey": "kobe",
+      "details": [
+        ["Confirmation", "2462970815"],
+        ["Dates", "Jun 17–19 (2 nights)"],
+        ["Check in/out", "3:00 PM / 11:00 AM"],
+        ["Room", "Premium Room, 1 King Bed, City View"],
+        ["Address", "1-Chome, Kitano-cho, Chuo-ku, Kobe"],
+        ["Cost", "$246.40"]
+      ],
+      "url": "https://www.ihg.com/crowneplaza/hotels/us/en/hyogo/osakb/hoteldetail"
+    },
+    {
+      "type": "Hotel · Hiroshima", "icon": "hotel",
+      "title": "Hilton Hiroshima",
+      "colorKey": "hiroshima",
+      "details": [
+        ["Confirmation", "3465440877"],
+        ["Dates", "Jun 19–22 (3 nights)"],
+        ["Check in/out", "3:00 PM / 12:00 PM"],
+        ["Room", "King Premium Room"],
+        ["Address", "11-12 Fujimicho, Naka-ku, Hiroshima"],
+        ["Phone", "+81-82-243-2700"],
+        ["Cost", "177,000 Hilton points"]
+      ],
+      "url": "https://www.hilton.com/en/hotels/hijshhi-hilton-hiroshima/"
+    },
+    {
+      "type": "Rail Transfers", "icon": "train",
+      "title": "Intercity Trains",
+      "colorKey": "transit",
+      "details": [
+        ["Jun 14", "Tokyo → Fujikawaguchiko"],
+        ["Jun 15", "Mt. Fuji area → Kyoto"],
+        ["Jun 17", "Kyoto → Kobe"],
+        ["Jun 19", "Kobe → Hiroshima (Shinkansen)"],
+        ["Jun 22", "Hiroshima → Tokyo (Shinkansen)"]
+      ],
+      "url": "https://www.google.com/maps/dir/Tokyo/Mount+Fuji/Kyoto/Kobe/Hiroshima/Tokyo"
+    }
+  ]
+}

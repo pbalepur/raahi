@@ -2071,3 +2071,780 @@ a:hover .maps-link-icon { opacity: .7; }
   .day-card, .booking-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
   .day-details { display: block !important; }
 }
+
+/* ================================================
+   V4: ROUTE MAP (Leaflet)
+   ================================================ */
+
+.route-map {
+  width: 100%;
+  height: 300px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  margin-bottom: 24px;
+  overflow: hidden;
+  background: var(--bg-section);
+}
+
+.section-intro-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.data-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+
+.import-label {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ================================================
+   V4: FILTER PILLS
+   ================================================ */
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  font-family: var(--font-sans);
+}
+
+.filter-pill:hover {
+  border-color: var(--pill-color, var(--ink-muted));
+  color: var(--pill-color, var(--ink));
+}
+
+.filter-pill.active {
+  background: var(--pill-color, var(--indigo));
+  border-color: var(--pill-color, var(--indigo));
+  color: #fff;
+}
+
+.filter-pill[data-place="all"] {
+  --pill-color: var(--ink);
+}
+
+.filter-pill-today {
+  --pill-color: var(--bamboo);
+}
+
+.filter-pill-today svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ================================================
+   V4: DAY CARD (compact, no accordion)
+   ================================================ */
+
+.day-card {
+  cursor: pointer;
+}
+
+.day-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.day-travel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--city-bg);
+  color: var(--city-color);
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* ================================================
+   V4: ADD PLACE CARD
+   ================================================ */
+
+.city-card-add {
+  border: 2px dashed var(--border);
+  background: transparent;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.city-card-add:hover {
+  border-color: var(--indigo);
+  background: var(--indigo-light);
+}
+
+.city-card-add-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.city-card-add-inner svg {
+  width: 28px;
+  height: 28px;
+  opacity: 0.5;
+}
+
+.city-card-add:hover .city-card-add-inner {
+  color: var(--indigo);
+}
+
+.city-card-add:hover .city-card-add-inner svg {
+  opacity: 1;
+}
+
+/* Add Place modal fields */
+.apm-field {
+  margin-bottom: 14px;
+}
+
+.apm-field label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  margin-bottom: 4px;
+}
+
+.apm-field input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-family: var(--font-sans);
+  background: var(--bg);
+}
+
+.apm-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ================================================
+   V4: DAY PANEL (slide-in)
+   ================================================ */
+
+.day-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.day-panel.open {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.day-panel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28,25,23,.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.day-panel-content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(540px, 92vw);
+  background: var(--bg);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(100%);
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.day-panel.open .day-panel-content {
+  transform: translateX(0);
+}
+
+.day-panel-header {
+  position: sticky;
+  top: 0;
+  padding: 16px 20px 14px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  z-index: 2;
+}
+
+.day-panel-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.day-panel-prev,
+.day-panel-next {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+  line-height: 1;
+}
+
+.day-panel-prev:hover,
+.day-panel-next:hover {
+  background: var(--indigo-light);
+  border-color: var(--indigo);
+}
+
+.day-panel-date {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+
+.day-panel-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 1.4rem;
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+
+.day-panel-close:hover {
+  background: var(--bg-section);
+  color: var(--ink);
+}
+
+.day-panel-title-text {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: var(--font-serif);
+}
+
+.day-panel-place {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.day-panel-body {
+  flex: 1;
+  padding: 16px 20px 40px;
+}
+
+.panel-section {
+  margin-bottom: 24px;
+}
+
+.panel-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  margin: 0 0 10px;
+}
+
+.panel-empty {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  font-style: italic;
+  margin: 0 0 12px;
+}
+
+/* Stay badge */
+.stay-badge {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+.stay-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.stay-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stay-info strong {
+  font-size: 0.88rem;
+}
+
+.stay-info span {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+.stay-conf {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.7rem !important;
+  color: var(--ink-faint) !important;
+}
+
+.stay-link {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--ink-muted);
+}
+
+.stay-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Travel card */
+.travel-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--indigo-light);
+  border: 1px solid rgba(30,58,95,.15);
+}
+
+.travel-icon {
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+.travel-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.travel-info strong {
+  font-size: 0.88rem;
+  color: var(--indigo);
+}
+
+.travel-info span {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+.travel-conf {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.7rem;
+}
+
+.travel-link {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--indigo);
+}
+
+.travel-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ================================================
+   V4: PANEL ITEMS
+   ================================================ */
+
+.panel-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+  background: var(--bg-card);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  overflow: hidden;
+}
+
+.panel-item:hover {
+  border-color: var(--ink-faint);
+}
+
+.panel-item.expanded {
+  border-color: var(--indigo);
+  box-shadow: 0 2px 8px rgba(30,58,95,.1);
+}
+
+.pi-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.pi-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--type-color) 10%, white);
+}
+
+.pi-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pi-time {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--indigo);
+}
+
+.pi-ampm {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+.pi-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pi-notes {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+.pi-conf {
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.pi-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.pi-map,
+.pi-ext-link {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  transition: all var(--transition);
+}
+
+.pi-map:hover {
+  background: var(--bamboo-light);
+  color: var(--bamboo);
+}
+
+.pi-ext-link:hover {
+  background: var(--indigo-light);
+  color: var(--indigo);
+}
+
+.pi-map svg,
+.pi-ext-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+.pi-confirmed .pi-icon {
+  box-shadow: 0 0 0 2px var(--bamboo);
+}
+
+.pi-tentative .pi-icon {
+  box-shadow: 0 0 0 2px var(--gold) dashed;
+}
+
+/* Detail panel (expanded) */
+.pi-detail {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.pi-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pi-detail-row label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.pi-detail-row input,
+.pi-detail-row select {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  background: var(--bg);
+}
+
+.pi-ampm-select {
+  max-width: 110px;
+}
+
+.pi-detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.pi-demote,
+.pi-promote {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+}
+
+.pi-demote:hover,
+.pi-promote:hover {
+  border-color: var(--indigo);
+  color: var(--indigo);
+  background: var(--indigo-light);
+}
+
+.pi-delete {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.pi-delete svg {
+  width: 13px;
+  height: 13px;
+}
+
+.pi-delete:hover {
+  border-color: var(--vermillion);
+  color: var(--vermillion);
+  background: var(--vermillion-light);
+}
+
+/* Panel add form */
+.panel-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+  margin-top: 8px;
+}
+
+.panel-add-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.panel-add-btn:hover {
+  border-color: var(--indigo);
+  color: var(--indigo);
+  background: var(--indigo-light);
+}
+
+.panel-add-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.paf-row {
+  display: flex;
+  gap: 8px;
+}
+
+.paf-type,
+.paf-time {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-family: var(--font-sans);
+  background: var(--bg);
+}
+
+.paf-type { flex: 1; }
+.paf-time { width: 110px; }
+
+.paf-title,
+.paf-notes {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  width: 100%;
+}
+
+.paf-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Undo toast */
+.toast-undo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toast-undo-btn {
+  padding: 4px 12px;
+  border: 1px solid rgba(255,255,255,.4);
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.78rem;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+}
+
+.toast-undo-btn:hover {
+  background: rgba(255,255,255,.2);
+}
+
+/* ================================================
+   V4 RESPONSIVE
+   ================================================ */
+
+@media (max-width: 768px) {
+  .route-map {
+    height: 220px;
+  }
+
+  .section-intro-row {
+    flex-direction: column;
+  }
+
+  .day-panel-content {
+    width: 100vw;
+  }
+
+  .filter-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .route-map {
+    height: 180px;
+  }
+
+  .day-panel-body {
+    padding: 12px 14px 40px;
+  }
+
+  .day-panel-header {
+    padding: 12px 14px 10px;
+  }
+}
