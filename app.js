@@ -1172,11 +1172,43 @@ function renderCountdown() {
   const countdownEl = $('#countdown');
   if (!countdownEl) return;
   const status = getTripStatus();
+
   if (status.phase === 'before') {
-    countdownEl.textContent = `${status.daysUntil} day${status.daysUntil !== 1 ? 's' : ''} until departure`;
+    const firstDay = trip.days[0];
+    const place = trip.places[firstDay.placeKey];
+    const schedule = getSchedule(0);
+    const firstItem = schedule[0];
+    const detail = `Day 1: ${firstDay.title}${firstItem ? ' · ' + firstItem.title : ''}`;
+    countdownEl.innerHTML = `
+      <span class="countdown-main">${status.daysUntil} day${status.daysUntil !== 1 ? 's' : ''} until departure</span>
+      <span class="countdown-detail">${detail}</span>`;
+    countdownEl.dataset.dayIdx = '0';
+    countdownEl.classList.add('countdown-clickable');
+    countdownEl.onclick = () => openDayPanel(0);
   } else if (status.phase === 'during') {
-    countdownEl.textContent = `Day ${status.dayNum} of ${trip.days.length} — enjoy the trip!`;
+    const todayIdx = status.dayIndex;
+    const day = trip.days[todayIdx];
+    const place = trip.places[day.placeKey];
+    const schedule = getSchedule(todayIdx);
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    let nextItem = null;
+    for (const item of schedule) {
+      if (item.time) {
+        const [hh, mm] = item.time.split(':').map(Number);
+        if (hh * 60 + mm > nowMinutes) { nextItem = item; break; }
+      }
+    }
+    const detail = nextItem
+      ? `Next: ${to12h(nextItem.time)} ${nextItem.title}`
+      : schedule.length > 0 ? `${schedule.length} activities today` : day.title;
+    countdownEl.innerHTML = `
+      <span class="countdown-main">Day ${status.dayNum} · ${place?.name || day.placeKey}</span>
+      <span class="countdown-detail">${detail}</span>`;
     countdownEl.style.background = 'rgba(77,124,15,.25)';
+    countdownEl.dataset.dayIdx = String(todayIdx);
+    countdownEl.classList.add('countdown-clickable');
+    countdownEl.onclick = () => openDayPanel(todayIdx);
   } else {
     countdownEl.textContent = 'Trip complete — welcome home!';
     countdownEl.style.background = 'rgba(197,61,45,.15)';
@@ -1552,78 +1584,6 @@ function showUndoToast(msg, undoFn) {
 }
 
 // ===================================================================
-//  TODAY / NEXT UP
-// ===================================================================
-
-function renderNextUp() {
-  const bar = $('#next-up-bar');
-  if (!bar) return;
-
-  const status = getTripStatus();
-
-  if (status.phase === 'before') {
-    const firstDay = trip.days[0];
-    const place = trip.places[firstDay.placeKey];
-    const schedule = getSchedule(0);
-    const firstItem = schedule[0];
-    bar.innerHTML = `
-      <div class="container">
-        <div class="next-up-card" data-day-idx="0">
-          <div class="next-up-icon">${ICONS.calendar}</div>
-          <div class="next-up-info">
-            <span class="next-up-label">Next Up · ${status.daysUntil} day${status.daysUntil !== 1 ? 's' : ''} away</span>
-            <strong class="next-up-title">Day 1: ${firstDay.title}</strong>
-            <span class="next-up-detail">${place?.name || ''}${firstItem ? ' · ' + firstItem.title : ''}</span>
-          </div>
-          <div class="next-up-arrow">${ICONS.chevron}</div>
-        </div>
-      </div>`;
-    bar.style.display = '';
-    bar.querySelector('.next-up-card').addEventListener('click', () => openDayPanel(0));
-    return;
-  }
-
-  if (status.phase === 'during') {
-    const todayIdx = status.dayIndex;
-    const day = trip.days[todayIdx];
-    const place = trip.places[day.placeKey];
-    const schedule = getSchedule(todayIdx);
-    // Find next upcoming activity
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    let nextItem = null;
-    for (const item of schedule) {
-      if (item.time) {
-        const [hh, mm] = item.time.split(':').map(Number);
-        if (hh * 60 + mm > nowMinutes) { nextItem = item; break; }
-      }
-    }
-    const upcomingText = nextItem
-      ? `Next: ${to12h(nextItem.time)} ${nextItem.title}`
-      : schedule.length > 0 ? `${schedule.length} activities today` : day.title;
-
-    bar.innerHTML = `
-      <div class="container">
-        <div class="next-up-card next-up-today" data-day-idx="${todayIdx}">
-          <div class="next-up-icon">${ICONS.clock}</div>
-          <div class="next-up-info">
-            <span class="next-up-label">Today · Day ${status.dayNum}</span>
-            <strong class="next-up-title">${place?.name || day.placeKey} — ${day.title}</strong>
-            <span class="next-up-detail">${upcomingText}</span>
-          </div>
-          <div class="next-up-arrow">${ICONS.chevron}</div>
-        </div>
-      </div>`;
-    bar.style.display = '';
-    bar.querySelector('.next-up-card').addEventListener('click', () => openDayPanel(todayIdx));
-    return;
-  }
-
-  // After trip: hide
-  bar.style.display = 'none';
-}
-
-// ===================================================================
 //  INIT
 // ===================================================================
 
@@ -1673,7 +1633,6 @@ async function init() {
   renderDayList('all');
   renderBookings();
   renderCountdown();
-  renderNextUp();
   initStickyNav();
   initBulkPaste();
   initAddPlaceModal();
