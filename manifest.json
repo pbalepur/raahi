@@ -2,7 +2,7 @@
   "name": "Raahi — Your Journeys",
   "short_name": "Raahi",
   "description": "Beautiful travel itineraries, all in one place.",
-  "start_url": "/japan-travel/",
+  "start_url": "/raahi/",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",
