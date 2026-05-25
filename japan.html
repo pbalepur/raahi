@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body class="is-trip">
 
@@ -26,7 +26,7 @@
         <a href="#route" class="snav-link" data-section="route">Places</a>
         <a href="#itinerary" class="snav-link" data-section="itinerary">Itinerary</a>
         <a href="#bookings" class="snav-link" data-section="bookings">Bookings</a>
-        <a href="#ask" class="snav-link" data-section="ask">Ask</a>
+        <button class="snav-link ask-trigger" data-section="ask">Ask</button>
       </div>
       <div class="sticky-actions">
         <button class="btn btn-outline btn-xs export-trigger" title="Export trip data">Export</button>
@@ -57,7 +57,7 @@
           <a href="#route" class="hero-pill">Places</a>
           <a href="#itinerary" class="hero-pill">Itinerary</a>
           <a href="#bookings" class="hero-pill">Bookings</a>
-          <a href="#ask" class="hero-pill">Ask</a>
+          <button class="hero-pill ask-trigger">Ask</button>
           <span class="hero-divider"></span>
           <button class="hero-pill hero-pill-util export-trigger" title="Export trip data">Export</button>
           <label class="hero-pill hero-pill-util import-label" title="Import trip data">
@@ -70,6 +70,9 @@
   </header>
 
   <main>
+
+    <!-- Today / Next Up -->
+    <div class="next-up-bar" id="next-up-bar"></div>
 
     <!-- Places (was "Your Cities") -->
     <section class="section route-section" id="route">
@@ -112,25 +115,25 @@
       <button id="bulk-open-btn" class="btn btn-primary">+ Bulk Add Activities</button>
     </div>
 
-    <!-- Ask -->
-    <section class="section ask-section" id="ask">
-      <div class="container">
-        <div class="ask-card">
-          <div class="section-intro">
-            <span class="label">Assistant</span>
-            <h2>Ask</h2>
-            <p class="section-desc">Try: "How many days in Hiroshima?", "What hotel in Kyoto?", "What's on day 5?"</p>
-          </div>
-          <form class="ask-form" id="ask-form">
-            <input id="ask-input" type="text" placeholder="Ask anything about the itinerary..." aria-label="Ask about the trip">
-            <button type="submit" class="btn btn-primary">Ask</button>
-          </form>
-          <div class="ask-answer" id="ask-answer" aria-live="polite">
-            Ask about hotels, flights, activities, days per place, confirmations, or costs.
-          </div>
-        </div>
+    <!-- Ask (floating chat bubble) -->
+    <div class="ask-fab" id="ask-fab" aria-label="Ask about this trip">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+    </div>
+    <aside class="ask-panel" id="ask-panel" role="dialog" aria-label="Trip assistant">
+      <div class="ask-panel-header">
+        <h3>Ask</h3>
+        <button class="ask-panel-close" id="ask-panel-close" aria-label="Close">&times;</button>
       </div>
-    </section>
+      <div class="ask-panel-body" id="ask-panel-body">
+        <div class="ask-panel-hint">Try: "How many days in Kyoto?", "What hotel?", "Day 5", or "costs"</div>
+      </div>
+      <form class="ask-panel-form" id="ask-form">
+        <input id="ask-input" type="text" placeholder="Ask about the itinerary..." aria-label="Ask about the trip" autocomplete="off">
+        <button type="submit" class="ask-panel-send" aria-label="Send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4z"/><path d="m22 2-11 11"/></svg>
+        </button>
+      </form>
+    </aside>
 
     <!-- Notifications -->
     <section class="section notify-section">
@@ -165,10 +168,10 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2m0 10v2m0-8v2"/></svg>
       <span>Bookings</span>
     </a>
-    <a href="#ask" class="mnav-item" data-section="ask">
+    <button class="mnav-item ask-trigger" data-section="ask">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
       <span>Ask</span>
-    </a>
+    </button>
   </nav>
 
   <!-- Day Panel (slide-in from right) -->
@@ -254,6 +257,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

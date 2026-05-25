@@ -252,6 +252,12 @@ function importTrip(file) {
         showToast('Invalid trip file — missing required fields');
         return;
       }
+      // Confirm before overwriting
+      const dayCount = data.days?.length || 0;
+      const tripName = data.meta?.name || 'Unknown';
+      if (!confirm(`Import "${tripName}" (${dayCount} days)? This will replace your current trip data.`)) {
+        return;
+      }
       trip = data;
       userEdits = {};
       saveTrip();
@@ -456,11 +462,35 @@ function renderFilterBar() {
       if (placeKey === 'today') {
         renderDayList('all');
         scrollToToday();
+        updateFilterStatus('all');
       } else {
         renderDayList(placeKey);
+        updateFilterStatus(placeKey);
       }
     });
   });
+}
+
+function updateFilterStatus(filter) {
+  let status = $('#filter-status');
+  if (!status) {
+    status = document.createElement('div');
+    status.id = 'filter-status';
+    status.className = 'filter-status';
+    const bar = $('#filter-bar');
+    if (bar) bar.after(status);
+    else return;
+  }
+
+  if (filter === 'all') {
+    status.style.display = 'none';
+    return;
+  }
+
+  const place = trip.places[filter];
+  const count = trip.days.filter(d => d.placeKey === filter).length;
+  status.textContent = `Showing ${count} day${count !== 1 ? 's' : ''} in ${place?.name || filter}`;
+  status.style.display = '';
 }
 
 // ===================================================================
@@ -604,18 +634,12 @@ function openDayPanel(dayIdx) {
       <h4 class="panel-label">Schedule</h4>
       <div class="panel-timeline">
         ${sortedSchedule.map(item => renderPanelItem(item, dayIdx, true)).join('')}
-      </div>
-      <button class="panel-add-btn" data-section="schedule" data-idx="${dayIdx}">
-        ${ICONS.plus} Add to schedule
-      </button>`;
+      </div>`;
     schedEl.style.display = '';
   } else {
     schedEl.innerHTML = `
       <h4 class="panel-label">Schedule</h4>
-      <p class="panel-empty">No scheduled items yet</p>
-      <button class="panel-add-btn" data-section="schedule" data-idx="${dayIdx}">
-        ${ICONS.plus} Add to schedule
-      </button>`;
+      <p class="panel-empty">No scheduled items yet</p>`;
     schedEl.style.display = '';
   }
 
@@ -627,8 +651,8 @@ function openDayPanel(dayIdx) {
       ? `<div class="panel-wl-list">${wishlist.map(item => renderPanelItem(item, dayIdx, false)).join('')}</div>`
       : '<p class="panel-empty">No wishlist items</p>'
     }
-    <button class="panel-add-btn" data-section="wishlist" data-idx="${dayIdx}">
-      ${ICONS.plus} Add to wishlist
+    <button class="panel-add-btn" data-section="add" data-idx="${dayIdx}">
+      ${ICONS.plus} Add
     </button>`;
 
   // Attach panel event handlers
@@ -705,7 +729,13 @@ function renderPanelItem(item, dayIdx, isSchedule) {
         <div class="pi-detail-row">
           <label>Move to Day</label>
           <select class="pi-move-day" data-id="${item.id}">
-            ${trip.days.map((d, i) => `<option value="${i}" ${i === dayIdx ? 'selected' : ''}>Day ${d.dayNum} — ${d.title}</option>`).join('')}
+            ${trip.days.map((d, i) => {
+              const currentPlace = trip.days[dayIdx].placeKey;
+              const isSamePlace = d.placeKey === currentPlace;
+              const isTransit = d.placeKey === 'transit' || d.placeKey === 'home';
+              const prefix = i === dayIdx ? '● ' : isSamePlace ? '' : isTransit ? '⚠ ' : '⚠ ';
+              return `<option value="${i}" ${i === dayIdx ? 'selected' : ''} data-same="${isSamePlace}" data-transit="${isTransit}">${prefix}Day ${d.dayNum} — ${trip.places[d.placeKey]?.name || d.placeKey} — ${d.title}</option>`;
+            }).join('')}
           </select>
         </div>
         <div class="pi-detail-actions">
@@ -771,14 +801,35 @@ function attachPanelHandlers(dayIdx) {
     });
   });
 
-  // Promote (wishlist → schedule)
+  // Promote (wishlist → schedule) — reads time/ampm from expanded form inputs
   panel.querySelectorAll('.pi-promote').forEach(btn => {
     btn.addEventListener('click', () => {
       const itemId = btn.dataset.id;
       const idx = parseInt(btn.dataset.idx);
-      promoteToSchedule(idx, itemId, null, 'AM');
+      const item = btn.closest('.panel-item');
+      const timeInput = item.querySelector('.pi-time-input');
+      const ampmSelect = item.querySelector('.pi-ampm-select');
+      const time = timeInput?.value || null;
+      const ampm = ampmSelect?.value || (time ? null : 'AM');
+
+      // Capture original wishlist item for undo
+      const wlItems = getWishlist(idx);
+      const origItem = wlItems.find(i => i.id === itemId);
+
+      promoteToSchedule(idx, itemId, time, ampm);
       openDayPanel(idx);
       renderDayList(getActiveFilter());
+
+      showUndoToast('Moved to schedule', () => {
+        // Undo: find the promoted item in schedule (by title) and move back
+        const schedItems = getSchedule(idx);
+        const promoted = schedItems.find(i => i.title === origItem?.title);
+        if (promoted) deleteScheduleItem(idx, promoted.id);
+        if (origItem) addWishlistItem(idx, { ...origItem });
+        saveEdits();
+        openDayPanel(idx);
+        renderDayList(getActiveFilter());
+      });
     });
   });
 
@@ -787,44 +838,90 @@ function attachPanelHandlers(dayIdx) {
     btn.addEventListener('click', () => {
       const itemId = btn.dataset.id;
       const idx = parseInt(btn.dataset.idx);
+
+      // Capture original schedule item for undo
+      const schedItems = getSchedule(idx);
+      const origItem = schedItems.find(i => i.id === itemId);
+
       demoteToWishlist(idx, itemId);
       openDayPanel(idx);
       renderDayList(getActiveFilter());
+
+      showUndoToast('Moved to wishlist', () => {
+        // Undo: find demoted item in wishlist and move back to schedule
+        const wlItems = getWishlist(idx);
+        const demoted = wlItems.find(i => i.title === origItem?.title);
+        if (demoted) deleteWishlistItem(idx, demoted.id);
+        if (origItem) addScheduleItem(idx, { ...origItem });
+        saveEdits();
+        openDayPanel(idx);
+        renderDayList(getActiveFilter());
+      });
     });
   });
 
-  // Move to different day
+  // Move to different day (with cross-place confirmation + undo)
   panel.querySelectorAll('.pi-move-day').forEach(select => {
     select.addEventListener('change', () => {
       const itemId = select.dataset.id;
       const toDayIdx = parseInt(select.value);
-      const item = select.closest('.panel-item');
-      const isSchedule = item.dataset.schedule === 'true';
-      if (toDayIdx !== dayIdx) {
+      const panelItem = select.closest('.panel-item');
+      const isSchedule = panelItem.dataset.schedule === 'true';
+      if (toDayIdx === dayIdx) return;
+
+      const currentPlace = trip.days[dayIdx].placeKey;
+      const targetPlace = trip.days[toDayIdx].placeKey;
+      const isSamePlace = targetPlace === currentPlace;
+      const isTransit = targetPlace === 'transit' || targetPlace === 'home';
+
+      const doMove = () => {
+        // Capture item before moving (for undo)
+        const sourceItems = isSchedule ? getSchedule(dayIdx) : getWishlist(dayIdx);
+        const itemData = sourceItems.find(i => i.id === itemId);
+
         moveItemToDay(dayIdx, toDayIdx, itemId, isSchedule);
-        showToast(`Moved to Day ${trip.days[toDayIdx].dayNum}`);
+
+        showUndoToast(`Moved to Day ${trip.days[toDayIdx].dayNum}`, () => {
+          // Undo: move it back
+          // The item now has a new ID in the target day — find it by title
+          const targetItems = isSchedule ? getSchedule(toDayIdx) : getWishlist(toDayIdx);
+          const movedItem = targetItems.find(i => i.title === itemData.title);
+          if (movedItem) {
+            if (isSchedule) {
+              deleteScheduleItem(toDayIdx, movedItem.id);
+              addScheduleItem(dayIdx, { ...itemData });
+            } else {
+              deleteWishlistItem(toDayIdx, movedItem.id);
+              addWishlistItem(dayIdx, { ...itemData });
+            }
+            saveEdits();
+          }
+          openDayPanel(dayIdx);
+          renderDayList(getActiveFilter());
+        });
+
         openDayPanel(dayIdx);
         renderDayList(getActiveFilter());
+      };
+
+      if (!isSamePlace) {
+        const targetName = trip.places[targetPlace]?.name || targetPlace;
+        const warning = isTransit
+          ? `Day ${trip.days[toDayIdx].dayNum} is a transit day. Move activity there anyway?`
+          : `Day ${trip.days[toDayIdx].dayNum} is in ${targetName} (different from current place). Move anyway?`;
+        if (!confirm(warning)) {
+          // Reset dropdown
+          select.value = dayIdx;
+          return;
+        }
       }
+
+      doMove();
     });
   });
 
-  // Time input changes (auto-promote/demote)
-  panel.querySelectorAll('.pi-time-input').forEach(input => {
-    input.addEventListener('change', () => {
-      const itemId = input.dataset.id;
-      const item = input.closest('.panel-item');
-      const isSchedule = item.dataset.schedule === 'true';
-      const newTime = input.value || null;
-
-      if (!isSchedule && newTime) {
-        // Promote to schedule
-        promoteToSchedule(dayIdx, itemId, newTime, null);
-        openDayPanel(dayIdx);
-        renderDayList(getActiveFilter());
-      }
-    });
-  });
+  // Time input changes — just store the value, don't auto-promote
+  // Promotion only happens via the explicit "Move to Schedule" button
 
   // Add buttons
   panel.querySelectorAll('.panel-add-btn').forEach(btn => {
@@ -848,9 +945,14 @@ function showPanelAddForm(dayIdx, section, afterEl) {
   form.id = 'panel-add-form';
   form.className = 'panel-add-form';
   form.innerHTML = `
+    <div class="paf-toggle-row">
+      <button type="button" class="paf-toggle active" data-target="schedule">Schedule</button>
+      <button type="button" class="paf-toggle" data-target="wishlist">Wishlist</button>
+    </div>
+    <input type="hidden" name="section" value="schedule">
     <div class="paf-row">
       <select name="type" class="paf-type">${typeOptions}</select>
-      ${section === 'schedule' ? '<input type="time" name="time" class="paf-time">' : ''}
+      <input type="time" name="time" class="paf-time">
     </div>
     <input type="text" name="title" class="paf-title" placeholder="Activity name..." required autofocus>
     <input type="text" name="notes" class="paf-notes" placeholder="Notes (optional)">
@@ -862,6 +964,20 @@ function showPanelAddForm(dayIdx, section, afterEl) {
   afterEl.after(form);
   form.querySelector('.paf-title').focus();
 
+  // Toggle Schedule / Wishlist
+  const toggleBtns = form.querySelectorAll('.paf-toggle');
+  const sectionInput = form.querySelector('[name="section"]');
+  const timeInput = form.querySelector('.paf-time');
+  toggleBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      toggleBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      sectionInput.value = btn.dataset.target;
+      // Show/hide time input based on section
+      timeInput.style.display = btn.dataset.target === 'schedule' ? '' : 'none';
+    });
+  });
+
   form.querySelector('.paf-cancel').addEventListener('click', () => form.remove());
 
   form.addEventListener('submit', (e) => {
@@ -869,16 +985,17 @@ function showPanelAddForm(dayIdx, section, afterEl) {
     const fd = new FormData(form);
     const title = fd.get('title').toString().trim();
     if (!title) return;
+    const targetSection = fd.get('section');
 
     const item = {
       id: generateId(),
       type: fd.get('type'),
       title,
       notes: fd.get('notes')?.toString().trim() || '',
-      status: section === 'schedule' ? 'tentative' : 'wishlist',
+      status: targetSection === 'schedule' ? 'tentative' : 'wishlist',
     };
 
-    if (section === 'schedule') {
+    if (targetSection === 'schedule') {
       item.time = fd.get('time') || null;
       item.ampm = item.time ? null : 'AM';
       addScheduleItem(dayIdx, item);
@@ -1200,15 +1317,66 @@ function parseBulkLine(line) {
 // ===================================================================
 
 function initAsk() {
+  const fab = $('#ask-fab');
+  const panel = $('#ask-panel');
+  const closeBtn = $('#ask-panel-close');
   const askForm = $('#ask-form');
   const askInput = $('#ask-input');
-  const askAnswer = $('#ask-answer');
-  if (!askForm) return;
+  const body = $('#ask-panel-body');
+  if (!fab || !panel) return;
 
-  askForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    askAnswer.textContent = answerQuestion(askInput.value);
+  function openAsk() {
+    panel.classList.add('open');
+    fab.classList.add('hidden');
+    setTimeout(() => askInput?.focus(), 300);
+  }
+
+  function closeAsk() {
+    panel.classList.remove('open');
+    fab.classList.remove('hidden');
+  }
+
+  fab.addEventListener('click', openAsk);
+  closeBtn?.addEventListener('click', closeAsk);
+
+  // All .ask-trigger buttons (hero, sticky nav, mobile nav)
+  $$('.ask-trigger').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openAsk();
+    });
   });
+
+  // Close on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && panel.classList.contains('open')) closeAsk();
+  });
+
+  // Form submit — chat bubble style
+  if (askForm) {
+    askForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = askInput.value.trim();
+      if (!q) return;
+
+      // Add question bubble
+      const qBubble = document.createElement('div');
+      qBubble.className = 'ask-bubble ask-bubble-q';
+      qBubble.textContent = q;
+      body.appendChild(qBubble);
+
+      // Get answer
+      const answer = answerQuestion(q);
+      const aBubble = document.createElement('div');
+      aBubble.className = 'ask-bubble ask-bubble-a';
+      aBubble.textContent = answer;
+      body.appendChild(aBubble);
+
+      // Scroll to bottom
+      body.scrollTop = body.scrollHeight;
+      askInput.value = '';
+    });
+  }
 }
 
 function answerQuestion(raw) {
@@ -1276,8 +1444,8 @@ function initStickyNav() {
   }, { threshold: 0, rootMargin: '-60px 0px 0px 0px' });
   observer.observe(hero);
 
-  const sections = ['route', 'itinerary', 'bookings', 'ask'];
-  const snavLinks = stickyNav.querySelectorAll('.snav-link');
+  const sections = ['route', 'itinerary', 'bookings'];
+  const snavLinks = stickyNav.querySelectorAll('.snav-link:not(.ask-trigger)');
 
   function updateActive() {
     let current = sections[0];
@@ -1293,13 +1461,13 @@ function initStickyNav() {
 }
 
 function updateMobileNav() {
-  const sections = ['route', 'itinerary', 'bookings', 'ask'];
+  const sections = ['route', 'itinerary', 'bookings'];
   let current = 'route';
   for (const id of sections) {
     const el = document.getElementById(id);
     if (el && el.getBoundingClientRect().top <= 120) current = id;
   }
-  $$('.mnav-item').forEach((item) => item.classList.toggle('active', item.dataset.section === current));
+  $$('.mnav-item:not(.ask-trigger)').forEach((item) => item.classList.toggle('active', item.dataset.section === current));
 }
 
 // ===================================================================
@@ -1384,6 +1552,78 @@ function showUndoToast(msg, undoFn) {
 }
 
 // ===================================================================
+//  TODAY / NEXT UP
+// ===================================================================
+
+function renderNextUp() {
+  const bar = $('#next-up-bar');
+  if (!bar) return;
+
+  const status = getTripStatus();
+
+  if (status.phase === 'before') {
+    const firstDay = trip.days[0];
+    const place = trip.places[firstDay.placeKey];
+    const schedule = getSchedule(0);
+    const firstItem = schedule[0];
+    bar.innerHTML = `
+      <div class="container">
+        <div class="next-up-card" data-day-idx="0">
+          <div class="next-up-icon">${ICONS.calendar}</div>
+          <div class="next-up-info">
+            <span class="next-up-label">Next Up · ${status.daysUntil} day${status.daysUntil !== 1 ? 's' : ''} away</span>
+            <strong class="next-up-title">Day 1: ${firstDay.title}</strong>
+            <span class="next-up-detail">${place?.name || ''}${firstItem ? ' · ' + firstItem.title : ''}</span>
+          </div>
+          <div class="next-up-arrow">${ICONS.chevron}</div>
+        </div>
+      </div>`;
+    bar.style.display = '';
+    bar.querySelector('.next-up-card').addEventListener('click', () => openDayPanel(0));
+    return;
+  }
+
+  if (status.phase === 'during') {
+    const todayIdx = status.dayIndex;
+    const day = trip.days[todayIdx];
+    const place = trip.places[day.placeKey];
+    const schedule = getSchedule(todayIdx);
+    // Find next upcoming activity
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    let nextItem = null;
+    for (const item of schedule) {
+      if (item.time) {
+        const [hh, mm] = item.time.split(':').map(Number);
+        if (hh * 60 + mm > nowMinutes) { nextItem = item; break; }
+      }
+    }
+    const upcomingText = nextItem
+      ? `Next: ${to12h(nextItem.time)} ${nextItem.title}`
+      : schedule.length > 0 ? `${schedule.length} activities today` : day.title;
+
+    bar.innerHTML = `
+      <div class="container">
+        <div class="next-up-card next-up-today" data-day-idx="${todayIdx}">
+          <div class="next-up-icon">${ICONS.clock}</div>
+          <div class="next-up-info">
+            <span class="next-up-label">Today · Day ${status.dayNum}</span>
+            <strong class="next-up-title">${place?.name || day.placeKey} — ${day.title}</strong>
+            <span class="next-up-detail">${upcomingText}</span>
+          </div>
+          <div class="next-up-arrow">${ICONS.chevron}</div>
+        </div>
+      </div>`;
+    bar.style.display = '';
+    bar.querySelector('.next-up-card').addEventListener('click', () => openDayPanel(todayIdx));
+    return;
+  }
+
+  // After trip: hide
+  bar.style.display = 'none';
+}
+
+// ===================================================================
 //  INIT
 // ===================================================================
 
@@ -1433,6 +1673,7 @@ async function init() {
   renderDayList('all');
   renderBookings();
   renderCountdown();
+  renderNextUp();
   initStickyNav();
   initBulkPaste();
   initAddPlaceModal();
