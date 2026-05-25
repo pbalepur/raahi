@@ -305,9 +305,10 @@ function renderRouteMap() {
   if (routeMap) routeMap.remove();
   routeMap = L.map(container, { scrollWheelZoom: false, zoomControl: true });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap',
-    maxZoom: 18,
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    maxZoom: 19,
+    subdomains: 'abcd',
   }).addTo(routeMap);
 
   // Fit bounds with padding
@@ -1331,16 +1332,15 @@ function initNotifications() {
 // ===================================================================
 
 function initExportImport() {
-  const exportBtn = $('#export-btn');
-  const importInput = $('#import-input');
-
-  if (exportBtn) exportBtn.addEventListener('click', exportTrip);
-  if (importInput) {
-    importInput.addEventListener('change', (e) => {
+  // Bind all export buttons (hero, sticky nav)
+  $$('.export-trigger').forEach(btn => btn.addEventListener('click', exportTrip));
+  // Bind all import file inputs (hero, sticky nav)
+  $$('.import-trigger').forEach(input => {
+    input.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) importTrip(file);
     });
-  }
+  });
 }
 
 // ===================================================================

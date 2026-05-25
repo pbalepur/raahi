@@ -406,7 +406,7 @@ img { display: block; max-width: 100%; }
   position: relative;
   display: flex;
   align-items: flex-end;
-  min-height: 50vh;
+  min-height: 42vh;
   padding: clamp(24px, 4vw, 48px) 0;
   overflow: hidden;
   color: #fffdf8;
@@ -506,6 +506,72 @@ img { display: block; max-width: 100%; }
   font-size: 0.86rem;
   font-weight: 600;
   backdrop-filter: blur(12px);
+}
+
+/* Hero Quick-Jump Nav */
+.hero-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255,253,248,.12);
+  color: rgba(255,253,248,.85);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid rgba(255,253,248,.15);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+
+.hero-pill:hover {
+  background: rgba(255,253,248,.22);
+  color: #fffdf8;
+  border-color: rgba(255,253,248,.3);
+}
+
+.hero-pill-util {
+  background: transparent;
+  border-color: rgba(255,253,248,.12);
+  color: rgba(255,253,248,.55);
+  font-size: 0.72rem;
+  padding: 5px 10px;
+}
+
+.hero-pill-util:hover {
+  background: rgba(255,253,248,.15);
+  color: rgba(255,253,248,.85);
+}
+
+.hero-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255,253,248,.2);
+  margin: 0 4px;
+}
+
+/* Sticky Nav Actions */
+.sticky-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.btn-xs {
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
 }
 
 /* ================================================
@@ -1348,7 +1414,7 @@ select {
   }
 
   .trip-hero {
-    min-height: 55vh;
+    min-height: 40vh;
     padding: 20px 0;
   }
 
@@ -1358,6 +1424,19 @@ select {
 
   .sticky-nav {
     display: none !important;
+  }
+
+  .hero-divider {
+    display: none;
+  }
+
+  .hero-nav {
+    gap: 5px;
+  }
+
+  .hero-pill {
+    padding: 5px 11px;
+    font-size: 0.72rem;
   }
 
   .mobile-nav {
@@ -1438,11 +1517,26 @@ select {
 
   /* Landing */
   .trips-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .trip-tile {
-    aspect-ratio: 3 / 4;
+    aspect-ratio: 3 / 5;
+  }
+
+  .trip-tile-name {
+    font-size: clamp(1.8rem, 6vw, 2.5rem);
+  }
+
+  .trip-tile-route {
+    font-size: 0.75rem;
+    display: none;
+  }
+
+  .trip-tile-meta {
+    flex-direction: column;
+    gap: 2px;
   }
 
   .landing-logo {

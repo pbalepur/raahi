@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=5">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body class="is-trip">
 
@@ -24,9 +24,16 @@
       <a href="index.html" class="sticky-brand"><img src="icon-192.png" alt="" class="brand-icon brand-icon-sm">Raahi</a>
       <div class="sticky-links">
         <a href="#route" class="snav-link" data-section="route">Places</a>
-        <a href="#itinerary" class="snav-link" data-section="itinerary">Days</a>
+        <a href="#itinerary" class="snav-link" data-section="itinerary">Itinerary</a>
         <a href="#bookings" class="snav-link" data-section="bookings">Bookings</a>
         <a href="#ask" class="snav-link" data-section="ask">Ask</a>
+      </div>
+      <div class="sticky-actions">
+        <button class="btn btn-outline btn-xs export-trigger" title="Export trip data">Export</button>
+        <label class="btn btn-outline btn-xs import-label" title="Import trip data">
+          Import
+          <input type="file" class="import-trigger" accept=".json" hidden>
+        </label>
       </div>
     </div>
   </nav>
@@ -46,6 +53,18 @@
         <p class="hero-route">Tokyo · Mt. Fuji · Kyoto · Kobe · Hiroshima</p>
         <p class="hero-dates">June 9 – 23 · 15 days · 2 travelers</p>
         <div class="hero-countdown" id="countdown"></div>
+        <nav class="hero-nav" aria-label="Jump to section">
+          <a href="#route" class="hero-pill">Places</a>
+          <a href="#itinerary" class="hero-pill">Itinerary</a>
+          <a href="#bookings" class="hero-pill">Bookings</a>
+          <a href="#ask" class="hero-pill">Ask</a>
+          <span class="hero-divider"></span>
+          <button class="hero-pill hero-pill-util export-trigger" title="Export trip data">Export</button>
+          <label class="hero-pill hero-pill-util import-label" title="Import trip data">
+            Import
+            <input type="file" class="import-trigger" accept=".json" hidden>
+          </label>
+        </nav>
       </div>
     </div>
   </header>
@@ -55,19 +74,10 @@
     <!-- Places (was "Your Cities") -->
     <section class="section route-section" id="route">
       <div class="container">
-        <div class="section-intro section-intro-row">
-          <div>
-            <span class="label">The Route</span>
-            <h2>Your Places</h2>
-            <p class="section-desc">Tap a place to filter its days in the itinerary.</p>
-          </div>
-          <div class="data-actions">
-            <button id="export-btn" class="btn btn-outline btn-sm" title="Export trip data">Export</button>
-            <label class="btn btn-outline btn-sm import-label" title="Import trip data">
-              Import
-              <input type="file" id="import-input" accept=".json" hidden>
-            </label>
-          </div>
+        <div class="section-intro">
+          <span class="label">The Route</span>
+          <h2>Places</h2>
+          <p class="section-desc">Tap a place to filter its days in the itinerary.</p>
         </div>
         <div id="route-map" class="route-map"></div>
         <div class="city-nav-grid" id="city-nav"></div>
@@ -108,7 +118,7 @@
         <div class="ask-card">
           <div class="section-intro">
             <span class="label">Assistant</span>
-            <h2>Ask about the trip</h2>
+            <h2>Ask</h2>
             <p class="section-desc">Try: "How many days in Hiroshima?", "What hotel in Kyoto?", "What's on day 5?"</p>
           </div>
           <form class="ask-form" id="ask-form">
@@ -149,7 +159,7 @@
     </a>
     <a href="#itinerary" class="mnav-item" data-section="itinerary">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-      <span>Days</span>
+      <span>Itinerary</span>
     </a>
     <a href="#bookings" class="mnav-item" data-section="bookings">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2m0 10v2m0-8v2"/></svg>
@@ -244,6 +254,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
