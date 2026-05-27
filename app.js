@@ -1210,25 +1210,33 @@ function renderBookings() {
             <span class="booking-type">${categoryLabel}</span>
             <h3>${escHtml(b.title)}</h3>
           </div>
-          <button class="booking-edit-btn" data-idx="${idx}" title="Edit booking">${ICONS.edit}</button>
         </div>
         <div class="booking-card-body">
           ${renderBookingBody(b)}
         </div>
         <div class="booking-card-footer">
-          ${b.url ? `<a href="${escHtml(b.url)}" target="_blank" rel="noreferrer">View details ${ICONS.arrow}</a>` : ''}
+          <button class="booking-footer-edit" data-idx="${idx}">Edit ${ICONS.edit}</button>
+          ${b.url ? `<a href="${escHtml(b.url)}" target="_blank" rel="noreferrer">View ${ICONS.arrow}</a>` : ''}
         </div>
       </article>`;
-  }).join('');
+  }).join('') + `
+    <button class="booking-add-card" id="booking-add-btn">
+      <span class="booking-add-icon">${ICONS.plus}</span>
+      <span>Add Booking</span>
+    </button>`;
 
   // Attach edit handlers
-  bookingGrid.querySelectorAll('.booking-edit-btn').forEach(btn => {
+  bookingGrid.querySelectorAll('.booking-footer-edit').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const idx = parseInt(btn.dataset.idx);
       openBookingEditor(idx);
     });
   });
+
+  // Add booking handler
+  const addBtn = $('#booking-add-btn');
+  if (addBtn) addBtn.addEventListener('click', openNewBookingForm);
 }
 
 // ===================================================================
@@ -1416,6 +1424,7 @@ function openBookingEditor(idx) {
     <div class="bef-actions">
       <button type="submit" class="btn btn-primary btn-sm">Save</button>
       <button type="button" class="btn btn-outline btn-sm bef-cancel">Cancel</button>
+      <button type="button" class="btn btn-danger btn-sm bef-delete">Delete</button>
     </div>`;
 
   body.after(form);
@@ -1464,6 +1473,18 @@ function openBookingEditor(idx) {
     form.remove();
     body.style.display = '';
     footer.style.display = '';
+  });
+
+  // Delete
+  form.querySelector('.bef-delete').addEventListener('click', () => {
+    trip.bookings.splice(idx, 1);
+    saveTrip();
+    renderBookings();
+    showUndoToast('Booking deleted', () => {
+      trip.bookings.splice(idx, 0, snapshot);
+      saveTrip();
+      renderBookings();
+    });
   });
 
   // Submit
@@ -1543,6 +1564,193 @@ function syncBookingToStays(hotelBooking) {
       if (firstNote) day.stay.room = firstNote;
     }
   });
+}
+
+// ===================================================================
+//  Add New Booking
+// ===================================================================
+
+function openNewBookingForm() {
+  const grid = $('#booking-grid');
+  const addBtn = $('#booking-add-btn');
+  if (!addBtn || grid.querySelector('.booking-new-form')) return;
+
+  addBtn.style.display = 'none';
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'booking-new-form';
+
+  wrapper.innerHTML = `
+    <div class="bnf-step bnf-pick-type">
+      <h4>New Booking</h4>
+      <p class="bnf-hint">What type?</p>
+      <div class="bnf-type-btns">
+        <button class="btn btn-outline bnf-type-btn" data-cat="hotel">${ICONS.hotel} Hotel</button>
+        <button class="btn btn-outline bnf-type-btn" data-cat="flight">${ICONS.plane} Flight</button>
+        <button class="btn btn-outline bnf-type-btn" data-cat="rail">${ICONS.train} Rail</button>
+      </div>
+      <button class="btn btn-outline btn-xs bnf-cancel-btn">Cancel</button>
+    </div>`;
+
+  grid.appendChild(wrapper);
+  wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  // Cancel
+  wrapper.querySelector('.bnf-cancel-btn').addEventListener('click', () => {
+    wrapper.remove();
+    addBtn.style.display = '';
+  });
+
+  // Pick type → show form
+  wrapper.querySelectorAll('.bnf-type-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.dataset.cat;
+      showNewBookingFields(wrapper, addBtn, cat);
+    });
+  });
+}
+
+function showNewBookingFields(wrapper, addBtn, category) {
+  const blank = {
+    category,
+    icon: category === 'flight' ? 'plane' : category === 'rail' ? 'train' : 'hotel',
+    title: '',
+    colorKey: 'transit',
+    confirmation: '',
+    cost: '',
+    notes: '',
+    url: '',
+  };
+  if (category === 'hotel') { blank.checkIn = ''; blank.checkOut = ''; }
+  if (category === 'flight') { blank.outbound = {}; blank.inbound = {}; }
+  if (category === 'rail') { blank.legs = []; }
+
+  let fields = '';
+  if (category === 'hotel') fields = buildHotelForm(blank);
+  else if (category === 'flight') fields = buildFlightForm(blank);
+  else if (category === 'rail') fields = buildRailForm(blank);
+
+  // Place picker
+  const placeOptions = Object.entries(trip.places)
+    .map(([key, p]) => `<option value="${key}">${p.emoji} ${p.name}</option>`)
+    .join('');
+
+  wrapper.innerHTML = `
+    <form class="booking-edit-form">
+      <h4>New ${category === 'flight' ? 'Flight' : category === 'rail' ? 'Rail' : 'Hotel'}</h4>
+      <div class="bef-field">
+        <label>Place</label>
+        <select name="colorKey" class="bef-select">${placeOptions}</select>
+      </div>
+      ${fields}
+      <div class="bef-actions">
+        <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        <button type="button" class="btn btn-outline btn-sm bnf-cancel-btn">Cancel</button>
+      </div>
+    </form>`;
+
+  // Auto-calc nights (hotel)
+  if (category === 'hotel') {
+    const ciInput = wrapper.querySelector('input[name="checkIn"]');
+    const coInput = wrapper.querySelector('input[name="checkOut"]');
+    const nightsInput = wrapper.querySelector('input[name="_nights"]');
+    if (ciInput && coInput && nightsInput) {
+      const updateNights = () => {
+        const n = calcNights(ciInput.value, coInput.value);
+        nightsInput.value = n > 0 ? n : '';
+      };
+      ciInput.addEventListener('change', updateNights);
+      coInput.addEventListener('change', updateNights);
+    }
+  }
+
+  // Rail leg management
+  if (category === 'rail') {
+    const legsList = wrapper.querySelector('#bef-legs-list');
+    wrapper.querySelector('.bef-add-leg')?.addEventListener('click', () => {
+      const i = legsList.children.length;
+      const row = document.createElement('div');
+      row.className = 'bef-row bef-leg-row';
+      row.dataset.legIdx = i;
+      row.innerHTML = `
+        <div class="bef-field"><input type="date" name="leg_date_${i}" value=""></div>
+        <div class="bef-field bef-field-grow"><input type="text" name="leg_route_${i}" value="" placeholder="City A → City B"></div>
+        <button type="button" class="bef-leg-remove btn btn-outline btn-xs" data-leg="${i}" title="Remove">×</button>`;
+      legsList.appendChild(row);
+    });
+    legsList?.addEventListener('click', (e) => {
+      if (e.target.classList.contains('bef-leg-remove')) {
+        e.target.closest('.bef-leg-row').remove();
+      }
+    });
+  }
+
+  // Cancel
+  wrapper.querySelector('.bnf-cancel-btn').addEventListener('click', () => {
+    wrapper.remove();
+    addBtn.style.display = '';
+  });
+
+  // Submit — create the booking
+  wrapper.querySelector('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+
+    const newBooking = { ...blank };
+    newBooking.title = fd.get('title')?.toString().trim() || 'Untitled';
+    newBooking.colorKey = fd.get('colorKey')?.toString() || 'transit';
+    newBooking.url = fd.get('url')?.toString().trim() || '';
+    newBooking.confirmation = fd.get('confirmation')?.toString().trim() || '';
+    newBooking.cost = fd.get('cost')?.toString().trim() || '';
+    newBooking.notes = fd.get('notes')?.toString().trim() || '';
+
+    if (category === 'hotel') {
+      newBooking.checkIn = fd.get('checkIn') || '';
+      newBooking.checkOut = fd.get('checkOut') || '';
+    } else if (category === 'flight') {
+      newBooking.outbound = {
+        flight: fd.get('out_flight')?.toString().trim() || '',
+        departAirport: fd.get('out_departAirport')?.toString().trim().toUpperCase() || '',
+        arriveAirport: fd.get('out_arriveAirport')?.toString().trim().toUpperCase() || '',
+        departDate: fd.get('out_departDate') || '',
+        departTime: fd.get('out_departTime') || '',
+        arriveDate: fd.get('out_arriveDate') || '',
+        arriveTime: fd.get('out_arriveTime') || '',
+      };
+      newBooking.inbound = {
+        flight: fd.get('in_flight')?.toString().trim() || '',
+        departAirport: fd.get('in_departAirport')?.toString().trim().toUpperCase() || '',
+        arriveAirport: fd.get('in_arriveAirport')?.toString().trim().toUpperCase() || '',
+        departDate: fd.get('in_departDate') || '',
+        departTime: fd.get('in_departTime') || '',
+        arriveDate: fd.get('in_arriveDate') || '',
+        arriveTime: fd.get('in_arriveTime') || '',
+      };
+    } else if (category === 'rail') {
+      const legRows = wrapper.querySelectorAll('.bef-leg-row');
+      newBooking.legs = [];
+      legRows.forEach(row => {
+        const i = row.dataset.legIdx;
+        const date = fd.get(`leg_date_${i}`)?.toString() || '';
+        const route = fd.get(`leg_route_${i}`)?.toString().trim() || '';
+        if (date || route) newBooking.legs.push({ date, route });
+      });
+    }
+
+    trip.bookings.push(newBooking);
+    if (category === 'hotel') syncBookingToStays(newBooking);
+    saveTrip();
+    renderBookings();
+
+    const addedIdx = trip.bookings.length - 1;
+    showUndoToast('Booking added', () => {
+      trip.bookings.splice(addedIdx, 1);
+      saveTrip();
+      renderBookings();
+    });
+  });
+
+  wrapper.querySelector('input[name="title"]')?.focus();
 }
 
 function escHtml(str) {

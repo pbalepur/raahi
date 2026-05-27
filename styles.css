@@ -1258,6 +1258,9 @@ img { display: block; max-width: 100%; }
 
 /* Booking card footer */
 .booking-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   padding: 12px 18px;
   border-top: 1px solid var(--border-light);
 }
@@ -1280,22 +1283,118 @@ img { display: block; max-width: 100%; }
   height: 14px;
 }
 
-/* Booking edit button */
-.booking-edit-btn {
-  margin-left: auto;
+/* Footer edit button */
+.booking-footer-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--muted);
-  padding: 6px;
-  border-radius: 6px;
-  transition: all var(--transition);
-  flex-shrink: 0;
+  color: var(--ink-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  padding: 0;
+  transition: color var(--transition);
 }
-.booking-edit-btn svg { width: 16px; height: 16px; }
-.booking-edit-btn:hover {
+.booking-footer-edit svg { width: 13px; height: 13px; }
+.booking-footer-edit:hover { color: var(--ink); }
+
+/* Delete button */
+.btn-danger {
+  background: none;
+  border: 1px solid var(--ink-faint);
+  color: var(--ink-muted);
+  margin-left: auto;
+}
+.btn-danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+/* Add Booking card */
+.booking-add-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 120px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  cursor: pointer;
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: all var(--transition);
+  padding: 24px;
+}
+.booking-add-card:hover {
+  border-color: var(--ink-faint);
   color: var(--ink);
+  background: var(--bg-warm);
+}
+.booking-add-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* New booking form wrapper */
+.booking-new-form {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.booking-new-form h4 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+.bnf-hint {
+  color: var(--ink-muted);
+  font-size: 0.84rem;
+  margin: 0 0 12px;
+}
+.bnf-type-btns {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.bnf-type-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 0.84rem;
+}
+.bnf-type-btn svg { width: 16px; height: 16px; }
+.bnf-type-btn:hover {
   background: var(--bg-section);
+}
+
+/* Select styling for place picker */
+.bef-select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.84rem;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--ink);
+  width: 100%;
+  box-sizing: border-box;
+}
+.bef-select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(212,175,55,.15);
 }
 
 /* Booking edit form — structured */
