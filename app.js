@@ -1287,19 +1287,21 @@ function renderBookingBody(b) {
 }
 
 function bookingMetaLine(b) {
+  const conf = b.confirmation ? ` · #${b.confirmation}` : '';
   if (b.category === 'hotel') {
     const nights = calcNights(b.checkIn, b.checkOut);
     const n = nights ? ` · ${nights} night${nights > 1 ? 's' : ''}` : '';
     const from = b.checkIn ? new Date(b.checkIn + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
     const to = b.checkOut ? new Date(b.checkOut + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-    return from && to ? `${from} → ${to}${n}` : (from || '');
+    const dates = from && to ? `${from} → ${to}${n}` : (from || '');
+    return dates + conf;
   }
   if (b.category === 'flight') {
     const ob = b.outbound;
     if (!ob?.departAirport) return '';
     const date = ob.departDate ? new Date(ob.departDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
     const time = ob.departTime ? ` · ${fmtTime12(ob.departTime)}` : '';
-    return `${ob.departAirport} → ${ob.arriveAirport}${date ? ' · ' + date : ''}${time}`;
+    return `${ob.departAirport} → ${ob.arriveAirport}${date ? ' · ' + date : ''}${time}${conf}`;
   }
   if (b.category === 'rail') {
     const from = b.transitFrom || '';
@@ -1307,7 +1309,7 @@ function bookingMetaLine(b) {
     const date = b.transitDate ? new Date(b.transitDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
     const time = b.transitTime ? ` · ${fmtTime12(b.transitTime)}` : '';
     const route = from && to ? `${from} → ${to}` : (from || to || '');
-    return `${route}${date ? ' · ' + date : ''}${time}`;
+    return `${route}${date ? ' · ' + date : ''}${time}${conf}`;
   }
   return '';
 }
@@ -1380,31 +1382,21 @@ function renderBookings() {
     const vendorLabel = bookingVendorLabel(b);
 
     return `
-      <div class="bm-row" data-idx="${idx}">
-        <div class="bm-main">
-          <div class="bm-icon">${icon}</div>
-          <div class="bm-info">
-            <div class="bm-badges">
-              <span class="bm-place-tag" style="background:${place.bg || '#f5f0e8'};color:${place.color}">${place.emoji || ''} ${escHtml(place.name)}</span>
-              <span class="bm-cat">${catLabel}</span>
-            </div>
-            <div class="bm-title">${escHtml(b.title)}</div>
-            ${meta ? `<div class="bm-meta">${meta}</div>` : ''}
+      <div class="bm-row" data-idx="${idx}" title="Click to edit">
+        <div class="bm-icon">${icon}</div>
+        <div class="bm-info">
+          <div class="bm-badges">
+            <span class="bm-place-tag" style="background:${place.bg || '#f5f0e8'};color:${place.color}">${place.emoji || ''} ${escHtml(place.name)}</span>
+            <span class="bm-cat">${catLabel}</span>
           </div>
-          <div class="bm-actions">
-            <a href="${mapsUrl}" target="_blank" rel="noreferrer" class="bm-icon-link bm-link-map" title="Map" onclick="event.stopPropagation()">${ICONS.map}</a>
-            ${b.url ? `<a href="${escHtml(b.url)}" target="_blank" rel="noreferrer" class="bm-icon-link bm-link-vendor" title="${vendorLabel}" onclick="event.stopPropagation()">${ICONS.arrow}</a>` : ''}
-            <button class="bm-toggle" title="Details">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-          </div>
+          <div class="bm-title">${escHtml(b.title)}</div>
+          ${meta ? `<div class="bm-meta">${meta}</div>` : ''}
         </div>
-        <div class="bm-detail" hidden>
-          ${renderBookingBody(b)}
-          <div class="bm-detail-footer">
-            <a href="${mapsUrl}" target="_blank" rel="noreferrer" class="bm-link bm-link-map">${ICONS.map} Map</a>
-            ${b.url ? `<a href="${escHtml(b.url)}" target="_blank" rel="noreferrer" class="bm-link bm-link-vendor">${vendorLabel} ${ICONS.arrow}</a>` : ''}
-            <button class="bm-edit-btn" data-idx="${idx}">Edit ${ICONS.edit}</button>
+        <div class="bm-actions">
+          <a href="${mapsUrl}" target="_blank" rel="noreferrer" class="bm-icon-link bm-link-map" title="Map" onclick="event.stopPropagation()">${ICONS.map}</a>
+          ${b.url ? `<a href="${escHtml(b.url)}" target="_blank" rel="noreferrer" class="bm-icon-link bm-link-vendor" title="${vendorLabel}" onclick="event.stopPropagation()">${ICONS.arrow}</a>` : ''}
+          <div class="bm-chevron">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </div>
         </div>
       </div>`;
@@ -1412,31 +1404,11 @@ function renderBookings() {
 
   container.innerHTML = rows.join('');
 
-  const toggleRow = (row) => {
-    const detail = row.querySelector('.bm-detail');
-    const isOpen = !detail.hidden;
-    detail.hidden = isOpen;
-    row.classList.toggle('bm-open', !isOpen);
-  };
-
-  // Toggle on chevron click
-  container.querySelectorAll('.bm-toggle').forEach(btn => {
-    btn.addEventListener('click', (e) => { e.stopPropagation(); toggleRow(btn.closest('.bm-row')); });
-  });
-
-  // Toggle on row header click (not on icon links)
-  container.querySelectorAll('.bm-main').forEach(main => {
-    main.addEventListener('click', (e) => {
+  // Click row → open editor (but not on the icon links)
+  container.querySelectorAll('.bm-row').forEach(row => {
+    row.addEventListener('click', (e) => {
       if (e.target.closest('.bm-icon-link')) return;
-      toggleRow(main.closest('.bm-row'));
-    });
-  });
-
-  // Edit button (inside expanded detail)
-  container.querySelectorAll('.bm-edit-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openBookingEditor(parseInt(btn.dataset.idx));
+      openBookingEditor(parseInt(row.dataset.idx));
     });
   });
 }

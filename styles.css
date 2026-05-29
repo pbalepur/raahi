@@ -1550,7 +1550,13 @@ img { display: block; max-width: 100%; }
 }
 
 .bm-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
   border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+  user-select: none;
   transition: background var(--transition);
 }
 
@@ -1558,20 +1564,7 @@ img { display: block; max-width: 100%; }
   border-bottom: none;
 }
 
-.bm-row.bm-open {
-  background: var(--bg-warm);
-}
-
-.bm-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.bm-main:hover {
+.bm-row:hover {
   background: var(--bg-section);
 }
 
@@ -1665,89 +1658,17 @@ img { display: block; max-width: 100%; }
 .bm-link-map:hover { background: var(--bamboo-light); color: var(--bamboo); }
 .bm-link-vendor:hover { background: var(--indigo-light); color: var(--indigo); }
 
-/* Edit button inside expanded detail footer */
-.bm-edit-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--ink-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  transition: all var(--transition);
-  margin-left: auto;
-}
-
-.bm-edit-btn svg { width: 12px; height: 12px; }
-
-.bm-edit-btn:hover {
-  border-color: var(--indigo);
-  color: var(--indigo);
-  background: var(--indigo-light);
-}
-
-.bm-toggle {
-  width: 30px;
-  height: 30px;
-  border: none;
-  background: transparent;
+/* Right-pointing chevron cue — row is clickable */
+.bm-chevron {
   color: var(--ink-faint);
-  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: all var(--transition);
+  flex-shrink: 0;
 }
 
-.bm-toggle:hover {
-  background: var(--bg-section);
+.bm-row:hover .bm-chevron {
   color: var(--ink-muted);
 }
-
-.bm-toggle svg {
-  transition: transform 200ms ease;
-}
-
-.bm-open .bm-toggle svg {
-  transform: rotate(180deg);
-}
-
-.bm-detail {
-  padding: 0 16px 16px 64px;
-  border-top: 1px solid var(--border-light);
-}
-
-.bm-detail-footer {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-light);
-}
-
-.bm-detail-footer .bm-link-vendor { color: var(--indigo); }
-
-.bm-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: opacity var(--transition);
-}
-
-.bm-link-map { color: var(--bamboo); }
-.bm-link-booking { color: var(--indigo); }
-.bm-link:hover { opacity: .7; }
-.bm-link svg { width: 14px; height: 14px; }
 
 /* ================================================
    V4: BOOKING PLACE GROUP HEADER
