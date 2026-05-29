@@ -569,7 +569,7 @@ function renderDayList(filter = 'all') {
           <div class="day-summary">
             <div class="day-header">
               <h3 class="day-title">${day.title}</h3>
-              <span class="day-city-pill" style="background:${place.bg}; color:${place.color}">${place.name}</span>
+              <span class="place-pill" style="background:${place.bg}; color:${place.color}">${place.emoji ? place.emoji + ' ' : ''}${place.name}</span>
             </div>
             <div class="day-preview">
               ${hasTravel ? `<span class="day-travel-badge">${ITEM_TYPES[day.travel.mode]?.icon || '🚀'} ${day.travel.summary}</span>` : ''}
@@ -1386,7 +1386,7 @@ function renderBookings() {
         <div class="bm-icon">${icon}</div>
         <div class="bm-info">
           <div class="bm-badges">
-            <span class="bm-place-tag" style="background:${place.bg || '#f5f0e8'};color:${place.color}">${place.emoji || ''} ${escHtml(place.name)}</span>
+            <span class="place-pill" style="background:${place.bg || '#f5f0e8'};color:${place.color}">${place.emoji ? place.emoji + ' ' : ''}${escHtml(place.name)}</span>
             <span class="bm-cat">${catLabel}</span>
           </div>
           <div class="bm-title">${escHtml(b.title)}</div>

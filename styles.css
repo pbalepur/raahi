@@ -116,7 +116,7 @@ img { display: block; max-width: 100%; }
 }
 
 .landing-header {
-  padding: clamp(48px, 10vh, 120px) 0 clamp(24px, 4vh, 48px);
+  padding: clamp(24px, 5vh, 56px) 0 clamp(16px, 3vh, 32px);
 }
 
 .landing-brand {
@@ -187,6 +187,7 @@ img { display: block; max-width: 100%; }
   border-radius: var(--radius-lg);
   overflow: hidden;
   aspect-ratio: 4 / 5;
+  max-height: calc(100vh - 220px); /* always fits above the fold */
   text-decoration: none;
   color: #fffdf8;
   box-shadow: var(--shadow-lg);
@@ -825,14 +826,18 @@ img { display: block; max-width: 100%; }
   text-overflow: ellipsis;
 }
 
-.day-city-pill {
+.day-city-pill { /* legacy alias */ }
+
+.place-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   flex-shrink: 0;
-  padding: 3px 10px;
+  padding: 3px 9px;
   border-radius: 999px;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  line-height: 1.4;
 }
 
 .day-preview {
@@ -1600,16 +1605,7 @@ img { display: block; max-width: 100%; }
   flex-wrap: wrap;
 }
 
-.bm-place-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  line-height: 1.4;
-}
+.bm-place-tag { /* legacy alias — now uses .place-pill */ }
 
 .bm-cat {
   font-size: 0.7rem;
