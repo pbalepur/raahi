@@ -1193,6 +1193,7 @@ function deletePlaceConfirm(placeKey) {
 // ===================================================================
 
 let bookingFilter = 'all';
+let bookingPlaceFilter = 'all';
 
 function calcNights(checkIn, checkOut) {
   if (!checkIn || !checkOut) return null;
@@ -1285,87 +1286,158 @@ function renderBookingBody(b) {
   </dl>`;
 }
 
+function bookingMetaLine(b) {
+  if (b.category === 'hotel') {
+    const nights = calcNights(b.checkIn, b.checkOut);
+    const n = nights ? ` · ${nights} night${nights > 1 ? 's' : ''}` : '';
+    const from = b.checkIn ? new Date(b.checkIn + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    const to = b.checkOut ? new Date(b.checkOut + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return from && to ? `${from} → ${to}${n}` : (from || '');
+  }
+  if (b.category === 'flight') {
+    const ob = b.outbound;
+    if (!ob?.departAirport) return '';
+    const date = ob.departDate ? new Date(ob.departDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    const time = ob.departTime ? ` · ${fmtTime12(ob.departTime)}` : '';
+    return `${ob.departAirport} → ${ob.arriveAirport}${date ? ' · ' + date : ''}${time}`;
+  }
+  if (b.category === 'rail') {
+    const from = b.transitFrom || '';
+    const to = b.transitTo || '';
+    const date = b.transitDate ? new Date(b.transitDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    const time = b.transitTime ? ` · ${fmtTime12(b.transitTime)}` : '';
+    const route = from && to ? `${from} → ${to}` : (from || to || '');
+    return `${route}${date ? ' · ' + date : ''}${time}`;
+  }
+  return '';
+}
+
 function renderBookingFilters() {
   const bar = $('#booking-filters');
   if (!bar) return;
+
+  // Category row
   const cats = [
     { key: 'all', label: 'All' },
     { key: 'hotel', label: 'Hotels' },
     { key: 'flight', label: 'Flights' },
     { key: 'rail', label: 'Rail' },
   ];
-  bar.innerHTML = cats.map(c =>
-    `<button class="filter-btn${bookingFilter === c.key ? ' active' : ''}" data-bfilter="${c.key}">${c.label}</button>`
-  ).join('');
-  bar.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      bookingFilter = btn.dataset.bfilter;
-      renderBookingFilters();
-      renderBookings();
-    });
+
+  // Place row — only show places that have at least one booking
+  const usedPlaceKeys = [...new Set(trip.bookings.map(b => b.colorKey).filter(Boolean))];
+  const places = usedPlaceKeys
+    .map(k => ({ key: k, place: trip.places[k] }))
+    .filter(({ place }) => place);
+
+  let html = `<div class="bf-row">
+    ${cats.map(c => `<button class="filter-btn${bookingFilter === c.key ? ' active' : ''}" data-bfilter="${c.key}">${c.label}</button>`).join('')}
+  </div>`;
+
+  if (places.length > 1) {
+    html += `<div class="bf-row bf-place-row">
+      <button class="filter-btn filter-btn-place${bookingPlaceFilter === 'all' ? ' active' : ''}" data-bplace="all">All places</button>
+      ${places.map(({ key, place }) =>
+        `<button class="filter-btn filter-btn-place${bookingPlaceFilter === key ? ' active' : ''}" data-bplace="${key}">
+          ${place.emoji || ''} ${place.name}
+        </button>`
+      ).join('')}
+    </div>`;
+  }
+
+  bar.innerHTML = html;
+
+  bar.querySelectorAll('[data-bfilter]').forEach(btn => {
+    btn.addEventListener('click', () => { bookingFilter = btn.dataset.bfilter; renderBookingFilters(); renderBookings(); });
+  });
+  bar.querySelectorAll('[data-bplace]').forEach(btn => {
+    btn.addEventListener('click', () => { bookingPlaceFilter = btn.dataset.bplace; renderBookingFilters(); renderBookings(); });
   });
 }
 
 function renderBookings() {
-  const bookingGrid = $('#booking-grid');
-  if (!bookingGrid) return;
+  const container = $('#booking-grid');
+  if (!container) return;
 
   sortBookings();
 
-  const filtered = bookingFilter === 'all'
-    ? trip.bookings
-    : trip.bookings.filter(b => b.category === bookingFilter);
+  let filtered = trip.bookings;
+  if (bookingFilter !== 'all') filtered = filtered.filter(b => b.category === bookingFilter);
+  if (bookingPlaceFilter !== 'all') filtered = filtered.filter(b => b.colorKey === bookingPlaceFilter);
 
   if (filtered.length === 0) {
-    bookingGrid.innerHTML = `<div class="booking-empty">No ${bookingFilter === 'all' ? '' : bookingFilter + ' '}bookings yet.</div>`;
+    container.innerHTML = `<div class="booking-empty">No bookings match this filter.</div>`;
     return;
   }
 
-  let html = '';
-  let lastPlaceKey = null;
-
-  filtered.forEach(b => {
+  const rows = filtered.map(b => {
     const idx = trip.bookings.indexOf(b);
-    const place = trip.places[b.colorKey] || trip.places.transit;
+    const place = trip.places[b.colorKey] || trip.places.transit || { name: 'Trip', color: '#78716c', bg: '#f5f0e8', emoji: '' };
     const icon = ICONS[b.icon] || ICONS.hotel;
-    const categoryLabel = b.category === 'flight' ? 'Flight' : b.category === 'rail' ? 'Rail' : 'Hotel';
+    const catLabel = b.category === 'flight' ? 'Flight' : b.category === 'rail' ? 'Rail' : 'Hotel';
+    const meta = bookingMetaLine(b);
+    const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(b.title + ' Japan')}`;
 
-    // Place group header
-    if (b.colorKey !== lastPlaceKey) {
-      lastPlaceKey = b.colorKey;
-      html += `<div class="booking-place-header" style="--bph-color:${place.color}">
-        <span class="booking-place-emoji">${place.emoji || ''}</span>
-        <span>${escHtml(place.name)}</span>
-      </div>`;
-    }
-
-    html += `
-      <article class="booking-card" data-booking-idx="${idx}" style="--booking-color:${place.color}; --booking-color-bg:${place.bg}">
-        <div class="booking-card-header">
-          <div class="booking-icon">${icon}</div>
-          <div>
-            <span class="booking-type">${categoryLabel}</span>
-            <h3>${escHtml(b.title)}</h3>
+    return `
+      <div class="bm-row" data-idx="${idx}">
+        <div class="bm-main">
+          <div class="bm-icon">${icon}</div>
+          <div class="bm-info">
+            <div class="bm-badges">
+              <span class="bm-place-tag" style="background:${place.bg || '#f5f0e8'};color:${place.color}">${place.emoji || ''} ${escHtml(place.name)}</span>
+              <span class="bm-cat">${catLabel}</span>
+            </div>
+            <div class="bm-title">${escHtml(b.title)}</div>
+            ${meta ? `<div class="bm-meta">${meta}</div>` : ''}
+          </div>
+          <div class="bm-actions">
+            <button class="bm-edit-btn" data-idx="${idx}" title="Edit">Edit ${ICONS.edit}</button>
+            <button class="bm-toggle" title="Details">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
           </div>
         </div>
-        <div class="booking-card-body">
+        <div class="bm-detail" hidden>
           ${renderBookingBody(b)}
+          <div class="bm-detail-footer">
+            <a href="${mapsUrl}" target="_blank" rel="noreferrer" class="bm-link bm-link-map">${ICONS.map} Map</a>
+            ${b.url ? `<a href="${escHtml(b.url)}" target="_blank" rel="noreferrer" class="bm-link bm-link-booking">Booking ${ICONS.arrow}</a>` : ''}
+          </div>
         </div>
-        <div class="booking-card-footer">
-          <button class="booking-footer-edit" data-idx="${idx}">Edit ${ICONS.edit}</button>
-          <a href="https://www.google.com/maps/search/${encodeURIComponent(b.title + ' Japan')}" target="_blank" rel="noreferrer" class="booking-footer-maps">${ICONS.map} Map</a>
-          ${b.url ? `<a href="${escHtml(b.url)}" target="_blank" rel="noreferrer">Booking ${ICONS.arrow}</a>` : ''}
-        </div>
-      </article>`;
+      </div>`;
   });
 
-  bookingGrid.innerHTML = html;
+  container.innerHTML = rows.join('');
 
-  // Attach edit handlers
-  bookingGrid.querySelectorAll('.booking-footer-edit').forEach(btn => {
+  // Expand/collapse
+  container.querySelectorAll('.bm-toggle').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const row = btn.closest('.bm-row');
+      const detail = row.querySelector('.bm-detail');
+      const isOpen = !detail.hidden;
+      detail.hidden = isOpen;
+      row.classList.toggle('bm-open', !isOpen);
+    });
+  });
+
+  // Edit
+  container.querySelectorAll('.bm-edit-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       openBookingEditor(parseInt(btn.dataset.idx));
+    });
+  });
+
+  // Click row to expand (but not on action buttons)
+  container.querySelectorAll('.bm-main').forEach(main => {
+    main.addEventListener('click', (e) => {
+      if (e.target.closest('.bm-actions')) return;
+      const row = main.closest('.bm-row');
+      const detail = row.querySelector('.bm-detail');
+      const isOpen = !detail.hidden;
+      detail.hidden = isOpen;
+      row.classList.toggle('bm-open', !isOpen);
     });
   });
 }

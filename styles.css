@@ -1481,21 +1481,225 @@ img { display: block; max-width: 100%; }
 
 .booking-toolbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 20px;
 }
 
 .booking-filters {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bf-row {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
 
+.bf-place-row .filter-btn {
+  font-size: 0.78rem;
+}
+
 .booking-add-top-btn {
   flex-shrink: 0;
+  margin-top: 2px;
 }
+
+/* ================================================
+   V4: BOOKING MANIFEST (Option B list rows)
+   ================================================ */
+
+#booking-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.bm-row {
+  border-bottom: 1px solid var(--border-light);
+  transition: background var(--transition);
+}
+
+.bm-row:last-child {
+  border-bottom: none;
+}
+
+.bm-row.bm-open {
+  background: var(--bg-warm);
+}
+
+.bm-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bm-main:hover {
+  background: var(--bg-section);
+}
+
+.bm-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--bg-section);
+  color: var(--ink-muted);
+}
+
+.bm-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.bm-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bm-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.bm-place-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.bm-cat {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bm-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bm-meta {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.bm-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.bm-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.bm-edit-btn svg { width: 12px; height: 12px; }
+
+.bm-edit-btn:hover {
+  border-color: var(--indigo);
+  color: var(--indigo);
+  background: var(--indigo-light);
+}
+
+.bm-toggle {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all var(--transition);
+}
+
+.bm-toggle:hover {
+  background: var(--bg-section);
+  color: var(--ink-muted);
+}
+
+.bm-toggle svg {
+  transition: transform 200ms ease;
+}
+
+.bm-open .bm-toggle svg {
+  transform: rotate(180deg);
+}
+
+.bm-detail {
+  padding: 0 16px 16px 64px;
+  border-top: 1px solid var(--border-light);
+}
+
+.bm-detail-footer {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+}
+
+.bm-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity var(--transition);
+}
+
+.bm-link-map { color: var(--bamboo); }
+.bm-link-booking { color: var(--indigo); }
+.bm-link:hover { opacity: .7; }
+.bm-link svg { width: 14px; height: 14px; }
 
 /* ================================================
    V4: BOOKING PLACE GROUP HEADER
