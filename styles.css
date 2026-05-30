@@ -4693,14 +4693,14 @@ body.is-readonly .import-label,
 body.is-readonly #booking-add-top,
 body.is-readonly .booking-toolbar-actions { display: none !important; }
 
-/* Disable booking card hover/click affordance in view-only mode */
-body.is-readonly .booking-card {
+/* Disable booking row hover/click affordance in view-only mode */
+body.is-readonly .bm-row {
   cursor: default;
   pointer-events: none;
 }
-body.is-readonly .booking-card:hover {
-  transform: none;
-  box-shadow: var(--shadow-sm);
+body.is-readonly .bm-row:hover {
+  background: inherit;
+  box-shadow: none;
 }
 
 /* Edit-mode toggle button */

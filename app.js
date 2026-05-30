@@ -806,6 +806,7 @@ function iepComputeSegmentDates() {
 }
 
 function openIEP() {
+  if (!isEditMode()) return;
   iepSegments    = deriveSegmentsFromDays();
   iepDepartDate  = trip.meta.startDate;
   iepReturnDate  = trip.meta.endDate;
@@ -1571,6 +1572,7 @@ function attachPanelHandlers(dayIdx) {
   // Delete buttons
   panel.querySelectorAll('.pi-delete').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (!isEditMode()) return;
       const itemId = btn.dataset.id;
       const idx = parseInt(btn.dataset.idx);
       const isSchedule = btn.dataset.schedule === 'true';
@@ -1601,6 +1603,7 @@ function attachPanelHandlers(dayIdx) {
   // Promote (wishlist → schedule) — reads time/ampm from expanded form inputs
   panel.querySelectorAll('.pi-promote').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (!isEditMode()) return;
       const itemId = btn.dataset.id;
       const idx = parseInt(btn.dataset.idx);
       const item = btn.closest('.panel-item');
@@ -1633,6 +1636,7 @@ function attachPanelHandlers(dayIdx) {
   // Demote (schedule → wishlist)
   panel.querySelectorAll('.pi-demote').forEach(btn => {
     btn.addEventListener('click', () => {
+      if (!isEditMode()) return;
       const itemId = btn.dataset.id;
       const idx = parseInt(btn.dataset.idx);
 
@@ -1660,6 +1664,7 @@ function attachPanelHandlers(dayIdx) {
   // Move to different day (with cross-place confirmation + undo)
   panel.querySelectorAll('.pi-move-day').forEach(select => {
     select.addEventListener('change', () => {
+      if (!isEditMode()) return;
       const itemId = select.dataset.id;
       const toDayIdx = parseInt(select.value);
       const panelItem = select.closest('.panel-item');
@@ -2162,10 +2167,11 @@ function renderBookings() {
 
   container.innerHTML = rows.join('');
 
-  // Click row → open editor (but not on the icon links)
+  // Click row → open editor (edit mode only; not on icon links)
   container.querySelectorAll('.bm-row').forEach(row => {
     row.addEventListener('click', (e) => {
       if (e.target.closest('.bm-icon-link')) return;
+      if (!isEditMode()) return;
       openBookingEditor(parseInt(row.dataset.idx));
     });
   });
@@ -2768,6 +2774,7 @@ function readFormIntoBooking(fd, booking) {
 }
 
 function openBookingEditor(idx) {
+  if (!isEditMode()) return;
   const booking = trip.bookings[idx];
   if (!booking) return;
   const snapshot = JSON.parse(JSON.stringify(booking));
@@ -2815,6 +2822,7 @@ function openBookingEditor(idx) {
 }
 
 function openNewBookingForm(category) {
+  if (!isEditMode()) return;
   if (!category) {
     // Show type picker in the panel
     const pickerHtml = `
@@ -3040,7 +3048,7 @@ function initBulkPaste() {
 
   if (!modal || !openBtn) return;
 
-  openBtn.addEventListener('click', () => { modal.classList.add('open'); textarea.focus(); });
+  openBtn.addEventListener('click', () => { if (!isEditMode()) return; modal.classList.add('open'); textarea.focus(); });
   closeBtn.addEventListener('click', () => { modal.classList.remove('open'); form.reset(); preview.innerHTML = ''; });
   modal.addEventListener('click', (e) => { if (e.target === modal) { modal.classList.remove('open'); form.reset(); preview.innerHTML = ''; } });
 
