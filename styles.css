@@ -4713,3 +4713,24 @@ body.is-readonly .booking-card:hover {
 body.is-readonly .is-trip .sticky-nav::after {
   display: none; /* placeholder for future banner if needed */
 }
+
+/* Day panel — hide all edit controls in view-only mode */
+body.is-readonly .panel-add-btn { display: none !important; }
+body.is-readonly .pi-detail     { display: none !important; }
+body.is-readonly .panel-item    { cursor: default; }
+
+/* Prevent panel items from looking clickable / interactive */
+body.is-readonly .panel-item .pi-main {
+  cursor: default;
+  pointer-events: none;
+}
+/* Re-allow map / external link buttons inside items */
+body.is-readonly .panel-item .pi-map,
+body.is-readonly .panel-item .pi-ext-link {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Booking panel — fully blocked via pointer-events on card, but also
+   hide the edit form body if someone manages to open it */
+body.is-readonly .booking-panel-body { pointer-events: none; }

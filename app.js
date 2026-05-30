@@ -1550,10 +1550,11 @@ function renderPanelItem(item, dayIdx, isSchedule) {
 function attachPanelHandlers(dayIdx) {
   const panel = $('#day-panel');
 
-  // Expand/collapse items
+  // Expand/collapse items (edit mode only)
   panel.querySelectorAll('.pi-main').forEach(main => {
     main.addEventListener('click', (e) => {
       if (e.target.closest('a')) return;
+      if (!isEditMode()) return;
       const item = main.closest('.panel-item');
       const detail = item.querySelector('.pi-detail');
       const isOpen = detail.style.display !== 'none';
@@ -1729,6 +1730,7 @@ function attachPanelHandlers(dayIdx) {
 }
 
 function showPanelAddForm(dayIdx, section, afterEl) {
+  if (!isEditMode()) return; // guard — shouldn't be reachable in readonly, but belt+suspenders
   // Remove any existing form
   const existing = $('#panel-add-form');
   if (existing) existing.remove();
