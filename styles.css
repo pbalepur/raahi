@@ -4397,3 +4397,70 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
   font-family: var(--font-sans);
 }
 .cce-remove:hover { color: #ef4444; }
+
+/* ── Remove confirmation state ─────────────────────────── */
+
+.city-card-remove-confirm {
+  background: #fef2f2;
+  border-top-color: #fecaca;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* dark mode */
+@media (prefers-color-scheme: dark) {
+  .city-card-remove-confirm {
+    background: rgba(239,68,68,.12);
+    border-top-color: rgba(239,68,68,.25);
+  }
+}
+
+.cce-warn {
+  font-size: 0.72rem;
+  color: #b91c1c;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+@media (prefers-color-scheme: dark) {
+  .cce-warn { color: #fca5a5; }
+}
+
+.cce-confirm-remove,
+.cce-confirm-keep {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition);
+}
+
+.cce-confirm-remove {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+.cce-confirm-remove:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.cce-confirm-keep {
+  background: transparent;
+  border-color: var(--border-hover, rgba(0,0,0,.2));
+  color: var(--ink-muted);
+}
+.cce-confirm-keep:hover {
+  background: var(--bg-hover, #f0f0f0);
+  color: var(--ink);
+}
+
+/* Dim the card image while pending removal */
+.city-card-remove-pending .city-card-img img {
+  opacity: 0.45;
+}

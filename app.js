@@ -139,8 +139,10 @@ let trip = null;       // The full trip data
 let userEdits = {};    // User overrides per day
 
 // Places edit mode state
-let placesEditMode = false;
-let editSegments   = []; // [{segId, key, nights}] — staged changes, not yet committed
+let placesEditMode   = false;
+let editSegments     = []; // [{segId, key, nights}] — staged changes, not yet committed
+let pendingRemoveId  = null; // segId currently showing inline remove confirmation
+let removedSegStack  = [];   // [{seg, index}] — stack for undo
 
 function loadTrip() {
   try {
@@ -500,11 +502,36 @@ function renderPlacesEditMode(cityNav) {
   const cards = editSegments.map((seg, i) => {
     const place   = trip.places[seg.key];
     if (!place) return '';
-    const isFirst = i === 0;
-    const isLast  = i === editSegments.length - 1;
+    const isFirst   = i === 0;
+    const isLast    = i === editSegments.length - 1;
+    const isPending = pendingRemoveId === seg.segId;
+
+    // How many days of content would be lost (from original trip.days)
+    const contentDays = trip.days.filter(d => d.placeKey === seg.key &&
+      ((d.schedule?.length || 0) + (d.wishlist?.length || 0) > 0)).length;
+
+    const editBar = isPending
+      ? `<div class="city-card-edit-bar city-card-remove-confirm">
+           <span class="cce-warn">Remove ${escHtml(place.name)}?${contentDays > 0 ? ` ${contentDays} day${contentDays !== 1 ? 's' : ''} of activities will be lost.` : ''}</span>
+           <button class="cce-confirm-remove" data-seg-id="${seg.segId}">Remove</button>
+           <button class="cce-confirm-keep"   data-seg-id="${seg.segId}">Keep</button>
+         </div>`
+      : `<div class="city-card-edit-bar">
+           <div class="city-card-reorder">
+             <button class="cce-btn cce-up"   data-seg-id="${seg.segId}" title="Move up"   ${isFirst ? 'disabled' : ''}>↑</button>
+             <button class="cce-btn cce-down" data-seg-id="${seg.segId}" title="Move down" ${isLast  ? 'disabled' : ''}>↓</button>
+           </div>
+           <div class="city-card-nights">
+             <button class="cce-btn cce-minus" data-seg-id="${seg.segId}" ${seg.nights <= 1 ? 'disabled' : ''}>−</button>
+             <span class="cce-nights-count">${seg.nights}</span>
+             <span class="cce-nights-label">day${seg.nights !== 1 ? 's' : ''}</span>
+             <button class="cce-btn cce-plus"  data-seg-id="${seg.segId}">+</button>
+           </div>
+           <button class="cce-remove" data-seg-id="${seg.segId}" title="Remove place">×</button>
+         </div>`;
 
     return `
-      <div class="city-card city-card-editing" data-seg-id="${seg.segId}" style="--city-color:${place.color}; --city-bg:${place.bg}">
+      <div class="city-card city-card-editing${isPending ? ' city-card-remove-pending' : ''}" data-seg-id="${seg.segId}" style="--city-color:${place.color}; --city-bg:${place.bg}">
         ${place.img ? `<div class="city-card-img"><img src="${place.img}" alt="${escHtml(place.name)}" loading="lazy"></div>` : ''}
         <div class="city-card-body">
           <div class="city-card-info">
@@ -512,19 +539,7 @@ function renderPlacesEditMode(cityNav) {
             <span class="city-meta">${seg.nights} day${seg.nights !== 1 ? 's' : ''}</span>
           </div>
         </div>
-        <div class="city-card-edit-bar">
-          <div class="city-card-reorder">
-            <button class="cce-btn cce-up"   data-seg-id="${seg.segId}" title="Move up"   ${isFirst ? 'disabled' : ''}>↑</button>
-            <button class="cce-btn cce-down" data-seg-id="${seg.segId}" title="Move down" ${isLast  ? 'disabled' : ''}>↓</button>
-          </div>
-          <div class="city-card-nights">
-            <button class="cce-btn cce-minus" data-seg-id="${seg.segId}" ${seg.nights <= 1 ? 'disabled' : ''}>−</button>
-            <span class="cce-nights-count">${seg.nights}</span>
-            <span class="cce-nights-label">day${seg.nights !== 1 ? 's' : ''}</span>
-            <button class="cce-btn cce-plus"  data-seg-id="${seg.segId}">+</button>
-          </div>
-          <button class="cce-remove" data-seg-id="${seg.segId}" title="Remove place">×</button>
-        </div>
+        ${editBar}
       </div>`;
   }).join('');
 
@@ -539,6 +554,7 @@ function renderPlacesEditMode(cityNav) {
   cityNav.querySelectorAll('.cce-up').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      pendingRemoveId = null;
       const idx = editSegments.findIndex(s => s.segId === btn.dataset.segId);
       if (idx > 0) {
         [editSegments[idx - 1], editSegments[idx]] = [editSegments[idx], editSegments[idx - 1]];
@@ -549,6 +565,7 @@ function renderPlacesEditMode(cityNav) {
   cityNav.querySelectorAll('.cce-down').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      pendingRemoveId = null;
       const idx = editSegments.findIndex(s => s.segId === btn.dataset.segId);
       if (idx < editSegments.length - 1) {
         [editSegments[idx], editSegments[idx + 1]] = [editSegments[idx + 1], editSegments[idx]];
@@ -561,6 +578,7 @@ function renderPlacesEditMode(cityNav) {
   cityNav.querySelectorAll('.cce-minus').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      pendingRemoveId = null;
       const seg = editSegments.find(s => s.segId === btn.dataset.segId);
       if (seg && seg.nights > 1) { seg.nights--; renderPlaces(); }
     });
@@ -568,17 +586,53 @@ function renderPlacesEditMode(cityNav) {
   cityNav.querySelectorAll('.cce-plus').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      pendingRemoveId = null;
       const seg = editSegments.find(s => s.segId === btn.dataset.segId);
       if (seg) { seg.nights++; renderPlaces(); }
     });
   });
 
-  // × remove
+  // × → show inline confirmation
   cityNav.querySelectorAll('.cce-remove').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      const idx = editSegments.findIndex(s => s.segId === btn.dataset.segId);
-      if (idx >= 0) { editSegments.splice(idx, 1); renderPlaces(); }
+      pendingRemoveId = pendingRemoveId === btn.dataset.segId ? null : btn.dataset.segId;
+      renderPlaces();
+    });
+  });
+
+  // Confirm remove
+  cityNav.querySelectorAll('.cce-confirm-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const segId = btn.dataset.segId;
+      const idx   = editSegments.findIndex(s => s.segId === segId);
+      if (idx < 0) return;
+
+      const removed = editSegments[idx];
+      const place   = trip.places[removed.key];
+      removedSegStack.push({ seg: { ...removed }, index: idx });
+      editSegments.splice(idx, 1);
+      pendingRemoveId = null;
+      renderPlaces();
+
+      showUndoToast(`Removed ${place?.name || removed.key}`, () => {
+        const entry = removedSegStack.find(e => e.seg.segId === segId);
+        if (!entry) return;
+        removedSegStack.splice(removedSegStack.indexOf(entry), 1);
+        const insertAt = Math.min(entry.index, editSegments.length);
+        editSegments.splice(insertAt, 0, entry.seg);
+        renderPlaces();
+      });
+    });
+  });
+
+  // Cancel remove
+  cityNav.querySelectorAll('.cce-confirm-keep').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      pendingRemoveId = null;
+      renderPlaces();
     });
   });
 
@@ -607,8 +661,10 @@ function deriveSegmentsFromDays() {
 }
 
 function enterPlacesEditMode() {
-  placesEditMode = true;
-  editSegments   = deriveSegmentsFromDays();
+  placesEditMode  = true;
+  editSegments    = deriveSegmentsFromDays();
+  pendingRemoveId = null;
+  removedSegStack = [];
   renderPlaces();
 }
 
@@ -621,8 +677,10 @@ function exitPlacesEditMode(apply) {
     renderBookings();
     showToast('Itinerary updated');
   }
-  placesEditMode = false;
-  editSegments   = [];
+  placesEditMode  = false;
+  editSegments    = [];
+  pendingRemoveId = null;
+  removedSegStack = [];
   renderPlaces();
 }
 
