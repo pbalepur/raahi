@@ -561,8 +561,8 @@ function renderDayList(filter = 'all') {
     const hotelName = day.stay?.hotel || stayBooking?.title || 'In transit';
 
     // Travel: explicit day data takes priority, fall back to booking lookup
-    const travelBooking = !day.travel ? getTravelBookingForDate(day.date) : null;
-    const travelShape   = travelBooking ? bookingToTravelShape(travelBooking) : null;
+    const travelEntry   = !day.travel ? getTravelBookingForDate(day.date) : null;
+    const travelShape   = travelEntry ? bookingToTravelShape(travelEntry) : null;
     const effectiveTravel = day.travel || travelShape;
 
     return `
@@ -611,33 +611,64 @@ function getStayBookingForDate(dateStr) {
   }) || null;
 }
 
-// Returns the first flight or rail booking departing on a given date
+// Returns the first matching flight/rail event for a given date.
+// Returns { booking, leg, event } where:
+//   leg:   'outbound' | 'inbound' | 'transit'
+//   event: 'depart' | 'arrive'
 function getTravelBookingForDate(dateStr) {
   if (!trip.bookings) return null;
-  return trip.bookings.find(b => {
+  for (const b of trip.bookings) {
     if (b.category === 'flight') {
-      return b.outbound?.departDate === dateStr;
+      const ob = b.outbound || {};
+      const ib = b.inbound  || {};
+      // Outbound departure
+      if (ob.departDate === dateStr)
+        return { booking: b, leg: 'outbound', event: 'depart' };
+      // Outbound arrival (only if it lands on a different day)
+      if (ob.arriveDate && ob.arriveDate !== ob.departDate && ob.arriveDate === dateStr)
+        return { booking: b, leg: 'outbound', event: 'arrive' };
+      // Inbound departure
+      if (ib.departDate && ib.departDate === dateStr)
+        return { booking: b, leg: 'inbound', event: 'depart' };
+      // Inbound arrival (cross-date, rare but possible)
+      if (ib.arriveDate && ib.arriveDate !== ib.departDate && ib.arriveDate === dateStr)
+        return { booking: b, leg: 'inbound', event: 'arrive' };
     }
-    if (b.category === 'rail') {
-      return b.transitDate === dateStr;
+    if (b.category === 'rail' && b.transitDate === dateStr) {
+      return { booking: b, leg: 'transit', event: 'depart' };
     }
-    return false;
-  }) || null;
+  }
+  return null;
 }
 
-// Convert a booking into the shape the panel travel section expects
-function bookingToTravelShape(b) {
+// Convert a travel entry { booking, leg, event } into the shape the panel expects
+function bookingToTravelShape(entry) {
+  if (!entry) return null;
+  const { booking: b, leg, event } = entry;
+
   if (b.category === 'flight') {
-    const ob  = b.outbound || {};
-    const dep = ob.departTime ? ` · ${fmtTime12(ob.departTime)}` : '';
+    const l = leg === 'inbound' ? (b.inbound || {}) : (b.outbound || {});
+    if (event === 'arrive') {
+      const arr = l.arriveTime ? ` · ${fmtTime12(l.arriveTime)}` : '';
+      return {
+        mode:         'flight',
+        summary:      `Arrive ${l.arriveAirport || '?'}${arr}`,
+        details:      `${b.title}${l.flight ? ' · ' + l.flight : ''} from ${l.departAirport || '?'}`,
+        confirmation: b.confirmation || '',
+        url:          b.url || '',
+      };
+    }
+    // depart
+    const dep = l.departTime ? ` · ${fmtTime12(l.departTime)}` : '';
     return {
       mode:         'flight',
-      summary:      `${ob.departAirport || '?'} → ${ob.arriveAirport || '?'}${dep}`,
-      details:      `${b.title}${ob.flight ? ' · ' + ob.flight : ''}`,
+      summary:      `${l.departAirport || '?'} → ${l.arriveAirport || '?'}${dep}`,
+      details:      `${b.title}${l.flight ? ' · ' + l.flight : ''}`,
       confirmation: b.confirmation || '',
       url:          b.url || '',
     };
   }
+
   if (b.category === 'rail') {
     const dep = b.transitTime ? ` · ${fmtTime12(b.transitTime)}` : '';
     return {
@@ -648,6 +679,7 @@ function bookingToTravelShape(b) {
       url:          b.url || '',
     };
   }
+
   return null;
 }
 
@@ -718,10 +750,10 @@ function openDayPanel(dayIdx) {
   }
 
   // Travel section — explicit day.travel takes priority, fall back to booking lookup
-  const travelEl      = panel.querySelector('.panel-travel');
-  const travelBooking = !day.travel ? getTravelBookingForDate(day.date) : null;
-  const travelShape   = travelBooking ? bookingToTravelShape(travelBooking) : null;
-  const travelData    = day.travel
+  const travelEl    = panel.querySelector('.panel-travel');
+  const travelEntry = !day.travel ? getTravelBookingForDate(day.date) : null;
+  const travelShape = travelEntry ? bookingToTravelShape(travelEntry) : null;
+  const travelData  = day.travel
     ? { ...day.travel, fromBooking: false }
     : travelShape
       ? { ...travelShape, fromBooking: true }
