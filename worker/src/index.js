@@ -154,26 +154,97 @@ async function parseWithClaude(emailText, subject, trips, env) {
 Known trips:
 ${tripsContext}
 
-Return ONLY a valid JSON object — no markdown fences, no explanation. Fields:
+Return ONLY a valid JSON object — no markdown fences, no explanation.
+
+The schema depends on the booking type:
+
+FOR HOTELS:
 {
-  "type":               "hotel" | "flight" | "train" | "activity" | "restaurant" | "transport" | "other",
-  "name":               "descriptive name (hotel name, airline + flight number, restaurant, etc.)",
-  "confirmationNumber": "booking / confirmation reference, or null",
-  "tripId":             "id of the matching trip (match booking dates against trip date ranges), or null",
-  "city":               "city this is in, or null",
-  "checkIn":            "YYYY-MM-DD — for hotels: check-in; for flights/trains/activities: departure/event date; or null",
-  "checkOut":           "YYYY-MM-DD — for hotels: check-out; for flights: arrival date if overnight; else null",
-  "time":               "HH:MM (24h) departure or start time, or null",
-  "cost":               numeric total cost or null,
-  "currency":           "ISO 4217 code (JPY, USD, EUR…) or null",
-  "notes":              "any useful extras: seat number, address, airline, platform, etc. — or null",
-  "confidence":         "high" | "medium" | "low"
+  "type": "hotel",
+  "name": "hotel name",
+  "confirmationNumber": "ref or null",
+  "tripId": "matching trip id or null",
+  "city": "city or null",
+  "checkIn": "YYYY-MM-DD",
+  "checkOut": "YYYY-MM-DD",
+  "cost": numeric or null,
+  "currency": "JPY/USD/EUR/etc or null",
+  "notes": "useful extras (address, room type, etc) or null",
+  "confidence": "high|medium|low"
+}
+
+FOR FLIGHTS (round-trip or one-way):
+{
+  "type": "flight",
+  "name": "airline name (e.g. United Airlines)",
+  "confirmationNumber": "ref or null",
+  "tripId": "matching trip id or null",
+  "outbound": {
+    "flight": "flight number (e.g. UA837)",
+    "departAirport": "IATA code (e.g. ORD)",
+    "arriveAirport": "IATA code (e.g. NRT)",
+    "departDate": "YYYY-MM-DD",
+    "departTime": "HH:MM (24h) or empty string",
+    "arriveDate": "YYYY-MM-DD",
+    "arriveTime": "HH:MM (24h) or empty string"
+  },
+  "inbound": {
+    "flight": "flight number or empty string if one-way",
+    "departAirport": "IATA code",
+    "arriveAirport": "IATA code",
+    "departDate": "YYYY-MM-DD or empty string if one-way",
+    "departTime": "HH:MM (24h) or empty string",
+    "arriveDate": "YYYY-MM-DD or empty string",
+    "arriveTime": "HH:MM (24h) or empty string"
+  },
+  "cost": numeric or null,
+  "currency": "USD/JPY/etc or null",
+  "notes": "seat numbers, class, baggage allowance, etc or null",
+  "confidence": "high|medium|low"
+}
+
+IMPORTANT for flights:
+- outbound = the FIRST leg (departing FROM home toward the destination)
+- inbound = the RETURN leg (coming back home). If one-way, set all inbound fields to empty strings.
+- departAirport and arriveAirport must NEVER be swapped — departAirport is where the plane LEAVES FROM
+- Use IATA airport codes (3 letters). If unknown, use the city name.
+
+FOR TRAINS / RAIL:
+{
+  "type": "train",
+  "name": "train name or route (e.g. Shinkansen Tokyo → Kyoto)",
+  "confirmationNumber": "ref or null",
+  "tripId": "matching trip id or null",
+  "transitDate": "YYYY-MM-DD",
+  "transitTime": "HH:MM (24h) or empty string",
+  "transitFrom": "origin city/station",
+  "transitTo": "destination city/station",
+  "cost": numeric or null,
+  "currency": "JPY/USD/etc or null",
+  "notes": "seat, car number, etc or null",
+  "confidence": "high|medium|low"
+}
+
+FOR ACTIVITIES / RESTAURANTS / OTHER:
+{
+  "type": "activity|restaurant|other",
+  "name": "name",
+  "confirmationNumber": "ref or null",
+  "tripId": "matching trip id or null",
+  "city": "city or null",
+  "checkIn": "YYYY-MM-DD (date of event)",
+  "checkOut": null,
+  "time": "HH:MM (24h) or null",
+  "cost": numeric or null,
+  "currency": "JPY/USD/etc or null",
+  "notes": "address, party size, etc or null",
+  "confidence": "high|medium|low"
 }
 
 Subject: ${subject}
 
 Email body:
-${emailText.slice(0, 4000)}`;
+${emailText.slice(0, 5000)}`;
 
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -184,7 +255,7 @@ ${emailText.slice(0, 4000)}`;
     },
     body: JSON.stringify({
       model:      'claude-haiku-4-5',
-      max_tokens: 512,
+      max_tokens: 800,
       messages:   [{ role: 'user', content: prompt }],
     }),
   });

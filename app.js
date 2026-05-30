@@ -1508,19 +1508,16 @@ function workerBookingToLocal(wb) {
     booking.checkIn  = wb.checkIn  || '';
     booking.checkOut = wb.checkOut || '';
   } else if (category === 'rail') {
-    booking.transitDate = wb.checkIn || '';
-    booking.transitTime = wb.time   || '';
+    // Claude returns structured train fields
+    booking.transitDate = wb.transitDate || wb.checkIn || '';
+    booking.transitTime = wb.transitTime || wb.time    || '';
+    booking.transitFrom = wb.transitFrom || '';
+    booking.transitTo   = wb.transitTo   || '';
   } else if (category === 'flight') {
-    booking.outbound = {
-      flight:        wb.name || '',
-      departDate:    wb.checkIn || '',
-      departTime:    wb.time   || '',
-      arriveDate:    wb.checkOut || '',
-      departAirport: '',
-      arriveAirport: '',
-      arriveTime:    '',
-    };
-    booking.inbound = {};
+    // Claude returns outbound/inbound leg objects — pass them straight through
+    const emptyLeg = { flight: '', departAirport: '', arriveAirport: '', departDate: '', departTime: '', arriveDate: '', arriveTime: '' };
+    booking.outbound = wb.outbound ? { ...emptyLeg, ...wb.outbound } : emptyLeg;
+    booking.inbound  = wb.inbound  ? { ...emptyLeg, ...wb.inbound  } : emptyLeg;
   }
 
   return booking;
