@@ -1532,9 +1532,31 @@ function renderInbox(items) {
       <div class="inbox-list">
         ${items.map(wb => {
           const icon = INBOX_ICONS[wb.type] || '📋';
-          const d1   = wb.checkIn  ? fmtBookingDate(wb.checkIn)  : '';
-          const d2   = wb.checkOut ? fmtBookingDate(wb.checkOut) : '';
-          const dateStr = d1 ? (d2 ? `${d1} → ${d2}` : d1) : '';
+
+          // Build route + date lines per booking type
+          let routeStr = '', dateStr = '';
+          if (wb.type === 'flight') {
+            const ob = wb.outbound || {};
+            const ib = wb.inbound  || {};
+            const hasReturn = !!(ib.departDate);
+            const arrow = hasReturn ? '↔' : '→';
+            routeStr = (ob.departAirport || ob.arriveAirport)
+              ? `${ob.departAirport || '?'} ${arrow} ${ob.arriveAirport || '?'}`
+              : '';
+            const dep = ob.departDate ? fmtBookingDate(ob.departDate) : '';
+            const ret = hasReturn     ? fmtBookingDate(ib.departDate) : '';
+            dateStr = dep ? (ret ? `${dep} → ${ret}` : dep) : '';
+          } else if (wb.type === 'train') {
+            routeStr = (wb.transitFrom || wb.transitTo)
+              ? `${wb.transitFrom || '?'} → ${wb.transitTo || '?'}`
+              : '';
+            dateStr = wb.transitDate ? fmtBookingDate(wb.transitDate) : '';
+          } else {
+            const d1 = wb.checkIn  ? fmtBookingDate(wb.checkIn)  : '';
+            const d2 = wb.checkOut ? fmtBookingDate(wb.checkOut) : '';
+            dateStr = d1 ? (d2 ? `${d1} → ${d2}` : d1) : '';
+          }
+
           const confBadge = wb.confidence === 'low'
             ? '<span class="inbox-conf inbox-conf-low">low confidence</span>'
             : wb.confidence === 'medium'
@@ -1545,8 +1567,9 @@ function renderInbox(items) {
               <div class="inbox-card-icon">${icon}</div>
               <div class="inbox-card-body">
                 <div class="inbox-card-name">${escHtml(wb.name || 'Booking')} ${confBadge}</div>
-                ${dateStr ? `<div class="inbox-card-date">${dateStr}</div>` : ''}
-                ${wb.city ? `<div class="inbox-card-meta">${escHtml(wb.city)}</div>` : ''}
+                ${routeStr ? `<div class="inbox-card-date">${escHtml(routeStr)}</div>` : ''}
+                ${dateStr  ? `<div class="inbox-card-meta">${dateStr}</div>`            : ''}
+                ${!routeStr && wb.city ? `<div class="inbox-card-meta">${escHtml(wb.city)}</div>` : ''}
                 ${wb.confirmationNumber ? `<div class="inbox-card-meta">Ref: ${escHtml(wb.confirmationNumber)}</div>` : ''}
               </div>
               <div class="inbox-card-actions">

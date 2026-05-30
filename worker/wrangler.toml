@@ -11,9 +11,12 @@ id      = "1ff06c7efd19442a85befe3bc726ef29"
 [vars]
 ALLOWED_ORIGIN = "https://pbalepur.github.io"
 
-# Secrets (set via: wrangler secret put CLAUDE_API_KEY, wrangler secret put API_SECRET)
+# Outbound email binding (for confirmation replies)
+[[send_email]]
+name = "SEND_EMAIL"
+
+# Secrets (set via: wrangler secret put CLAUDE_API_KEY)
 # CLAUDE_API_KEY — Anthropic API key
-# API_SECRET     — random Bearer token the Raahi app will use
 
 # Email routing — routes mail arriving at bookings@heyraahi.com to this worker
 [[send_email]]

@@ -12,6 +12,7 @@
  */
 
 import PostalMime from 'postal-mime';
+import { EmailMessage } from 'cloudflare:email';
 
 // ─── Email handler ────────────────────────────────────────────────────────────
 
@@ -57,7 +58,12 @@ export default {
       console.log(`Stored pending booking [${id}]: ${booking.type} — ${booking.name}`);
 
       // Send confirmation reply to sender
-      try { await sendReply(message, booking); } catch(e) { console.warn('Reply failed:', e.message); }
+      try {
+        await sendReply(message, booking, env);
+        console.log('Reply sent to:', message.from);
+      } catch(e) {
+        console.error('Reply failed:', e.message, e.stack);
+      }
 
     } catch (err) {
       console.error('email() handler error:', err);
@@ -276,64 +282,77 @@ ${emailText.slice(0, 5000)}`;
 
 // ─── Reply email ─────────────────────────────────────────────────────────────
 
-import { EmailMessage } from 'cloudflare:email';
-
-async function sendReply(inbound, booking) {
+async function sendReply(inbound, booking, env) {
   const typeLabel = {
     hotel: 'Hotel', flight: 'Flight', train: 'Train / Rail',
     restaurant: 'Restaurant', activity: 'Activity', other: 'Booking',
   }[booking.type] || 'Booking';
 
-  // Build date line
-  let dateLine = '';
+  // Build date/route lines per type
+  const lines = [];
   if (booking.type === 'flight') {
     const ob = booking.outbound || {};
-    dateLine = ob.departDate
-      ? `${ob.departAirport || '?'} → ${ob.arriveAirport || '?'}  on ${ob.departDate}${ob.departTime ? ' at ' + ob.departTime : ''}`
-      : '';
+    const ib = booking.inbound  || {};
+    const hasReturn = !!(ib.departDate);
+    if (ob.departDate) {
+      const t = ob.departTime ? ` at ${ob.departTime}` : '';
+      const a = ob.arriveTime ? `, arrives ${ob.arriveTime}` : '';
+      lines.push(`Outbound:  ${ob.departAirport || '?'} -> ${ob.arriveAirport || '?'}   ${ob.departDate}${t}${a}`);
+      if (ob.flight) lines.push(`           Flight ${ob.flight}`);
+    }
+    if (hasReturn && ib.departDate) {
+      const t = ib.departTime ? ` at ${ib.departTime}` : '';
+      const a = ib.arriveTime ? `, arrives ${ib.arriveTime}` : '';
+      lines.push(`Return:    ${ib.departAirport || '?'} -> ${ib.arriveAirport || '?'}   ${ib.departDate}${t}${a}`);
+      if (ib.flight) lines.push(`           Flight ${ib.flight}`);
+    }
   } else if (booking.type === 'train') {
-    dateLine = booking.transitDate
-      ? `${booking.transitFrom || ''} → ${booking.transitTo || ''}  on ${booking.transitDate}${booking.transitTime ? ' at ' + booking.transitTime : ''}`
-      : '';
+    if (booking.transitDate) {
+      const t = booking.transitTime ? ` at ${booking.transitTime}` : '';
+      lines.push(`Route:  ${booking.transitFrom || '?'} -> ${booking.transitTo || '?'}   ${booking.transitDate}${t}`);
+    }
   } else {
-    dateLine = booking.checkIn
-      ? `${booking.checkIn}${booking.checkOut ? ' → ' + booking.checkOut : ''}`
-      : '';
+    if (booking.checkIn) {
+      lines.push(`Dates:  ${booking.checkIn}${booking.checkOut ? ' -> ' + booking.checkOut : ''}`);
+    }
   }
 
-  const confLine   = booking.confirmationNumber ? `Confirmation: ${booking.confirmationNumber}` : '';
-  const costLine   = booking.cost ? `Cost: ${booking.currency || ''} ${booking.cost}` : '';
-  const notesLine  = booking.notes ? `Notes: ${booking.notes}` : '';
-  const confidence = booking.confidence === 'low' ? '\n⚠️  Low confidence — please double-check the details in Raahi.' : '';
+  if (booking.confirmationNumber) lines.push(`Ref:    ${booking.confirmationNumber}`);
+  if (booking.cost)               lines.push(`Cost:   ${booking.currency || ''} ${booking.cost}`.trim());
+  if (booking.notes)              lines.push(`Notes:  ${booking.notes}`);
+
+  const lowConf = booking.confidence === 'low'
+    ? '\nLow confidence parse -- please double-check the details in Raahi.'
+    : '';
 
   const body = [
     `Raahi received your forwarded confirmation and parsed the following:`,
     ``,
     `Type:  ${typeLabel}`,
-    `Name:  ${booking.name || '—'}`,
-    dateLine   ? `Dates: ${dateLine}`   : '',
-    confLine,
-    costLine,
-    notesLine,
+    `Name:  ${booking.name || '--'}`,
+    ...(lines.length ? ['', ...lines] : []),
     ``,
     `Open Raahi to review and add it to your trip.`,
-    confidence,
+    lowConf,
     ``,
-    `— Raahi`,
-  ].filter(l => l !== undefined && !(l === '' && false)).join('\n').replace(/\n{3,}/g, '\n\n');
+    `-- Raahi`,
+  ].join('\n').replace(/\n{3,}/g, '\n\n');
+
+  const subject = `[Raahi] Parsed: ${(booking.name || typeLabel).replace(/[^\x20-\x7E]/g, '')}`;
 
   const raw = [
     `From: Raahi <bookings@heyraahi.com>`,
     `To: ${inbound.from}`,
-    `Subject: ✓ Parsed: ${booking.name || typeLabel}`,
+    `Subject: ${subject}`,
     `MIME-Version: 1.0`,
     `Content-Type: text/plain; charset=UTF-8`,
     ``,
     body,
   ].join('\r\n');
 
+  // Use send_email binding (avoids dependency on Message-ID in forwarded emails)
   const reply = new EmailMessage('bookings@heyraahi.com', inbound.from, raw);
-  await inbound.reply(reply);
+  await env.SEND_EMAIL.send(reply);
 }
 
 // ─── KV helpers ───────────────────────────────────────────────────────────────
