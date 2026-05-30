@@ -138,6 +138,10 @@ const EDITS_KEY = 'raahi_v4_edits';
 let trip = null;       // The full trip data
 let userEdits = {};    // User overrides per day
 
+// Places edit mode state
+let placesEditMode = false;
+let editSegments   = []; // [{segId, key, nights}] — staged changes, not yet committed
+
 function loadTrip() {
   try {
     const stored = localStorage.getItem(STORE_KEY);
@@ -394,22 +398,65 @@ function renderRouteMap() {
 //  RENDER: Places Section (was "City Navigation")
 // ===================================================================
 
+// ── Default day title ─────────────────────────────────────────────────────────
+
+function defaultDayTitle(placeKey, localN) {
+  if (placeKey === 'transit') return 'Departure Day';
+  if (placeKey === 'home')    return 'Return Day';
+  const place = trip.places[placeKey];
+  const name  = place?.name || placeKey;
+  return `${name} Day ${localN}`;
+}
+
+// ── Places section render ─────────────────────────────────────────────────────
+
 function renderPlaces() {
-  const cityNav = $('#city-nav');
+  const cityNav   = $('#city-nav');
+  const actionsEl = $('#places-edit-actions');
+  const descEl    = $('#places-desc');
   if (!cityNav) return;
 
+  // ── Header action buttons ─────────────────────────────
+  if (actionsEl) {
+    if (placesEditMode) {
+      const total = editSegments.reduce((s, seg) => s + seg.nights, 0) + 2; // +2 for transit + home
+      actionsEl.innerHTML = `
+        <span class="places-total-days">${total} days total</span>
+        <button class="btn btn-primary btn-sm places-done-btn">Done</button>
+        <button class="btn btn-outline btn-sm places-cancel-btn">Cancel</button>
+      `;
+      actionsEl.querySelector('.places-done-btn').addEventListener('click',   () => exitPlacesEditMode(true));
+      actionsEl.querySelector('.places-cancel-btn').addEventListener('click', () => exitPlacesEditMode(false));
+    } else {
+      actionsEl.innerHTML = `<button class="btn btn-outline btn-sm places-edit-btn">${ICONS.edit} Edit</button>`;
+      actionsEl.querySelector('.places-edit-btn').addEventListener('click', enterPlacesEditMode);
+    }
+  }
+
+  // ── Description text ──────────────────────────────────
+  if (descEl) {
+    descEl.textContent = placesEditMode
+      ? 'Use ↑ ↓ to reorder · + / − to adjust days · × to remove'
+      : 'Tap a place to filter its days in the itinerary.';
+  }
+
+  // ── Cards ─────────────────────────────────────────────
+  if (placesEditMode) {
+    renderPlacesEditMode(cityNav);
+  } else {
+    renderPlacesNormal(cityNav);
+  }
+}
+
+function renderPlacesNormal(cityNav) {
   const cards = trip.route.map((stop, i) => {
     const place = trip.places[stop.key];
     if (!place) return '';
 
-    // Find days that belong to THIS route segment (by date range, not just placeKey)
-    const segDays = getRouteSegmentDays(i);
+    const segDays  = getRouteSegmentDays(i);
     const dayCount = segDays.length;
 
-    // Hotels for this specific segment only
-    const hotels = [...new Set(
-      segDays.filter(d => d.stay?.hotel).map(d => d.stay.hotel)
-    )];
+    const hotels = [...new Set(segDays.filter(d => d.stay?.hotel).map(d => d.stay.hotel))];
     const hotelLine = hotels.length > 1
       ? `${hotels[0]} +${hotels.length - 1} more`
       : hotels.length === 1 ? hotels[0] : '';
@@ -431,18 +478,13 @@ function renderPlaces() {
       </button>`;
   }).join('');
 
-  // Add Place card
   const addCard = `
     <button class="city-card city-card-add" id="add-place-btn">
-      <div class="city-card-add-inner">
-        ${ICONS.plus}
-        <span>Add Place</span>
-      </div>
+      <div class="city-card-add-inner">${ICONS.plus}<span>Add Place</span></div>
     </button>`;
 
   cityNav.innerHTML = `<div class="city-cards-row">${cards}${addCard}</div>`;
 
-  // Click handlers
   cityNav.querySelectorAll('.city-card[data-place]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       if (e.target.closest('.city-map-link')) return;
@@ -450,9 +492,316 @@ function renderPlaces() {
     });
   });
 
-  // Add Place handler
   const addBtn = $('#add-place-btn');
   if (addBtn) addBtn.addEventListener('click', openAddPlaceModal);
+}
+
+function renderPlacesEditMode(cityNav) {
+  const cards = editSegments.map((seg, i) => {
+    const place   = trip.places[seg.key];
+    if (!place) return '';
+    const isFirst = i === 0;
+    const isLast  = i === editSegments.length - 1;
+
+    return `
+      <div class="city-card city-card-editing" data-seg-id="${seg.segId}" style="--city-color:${place.color}; --city-bg:${place.bg}">
+        ${place.img ? `<div class="city-card-img"><img src="${place.img}" alt="${escHtml(place.name)}" loading="lazy"></div>` : ''}
+        <div class="city-card-body">
+          <div class="city-card-info">
+            <h3>${place.emoji} ${escHtml(place.name)}</h3>
+            <span class="city-meta">${seg.nights} day${seg.nights !== 1 ? 's' : ''}</span>
+          </div>
+        </div>
+        <div class="city-card-edit-bar">
+          <div class="city-card-reorder">
+            <button class="cce-btn cce-up"   data-seg-id="${seg.segId}" title="Move up"   ${isFirst ? 'disabled' : ''}>↑</button>
+            <button class="cce-btn cce-down" data-seg-id="${seg.segId}" title="Move down" ${isLast  ? 'disabled' : ''}>↓</button>
+          </div>
+          <div class="city-card-nights">
+            <button class="cce-btn cce-minus" data-seg-id="${seg.segId}" ${seg.nights <= 1 ? 'disabled' : ''}>−</button>
+            <span class="cce-nights-count">${seg.nights}</span>
+            <span class="cce-nights-label">day${seg.nights !== 1 ? 's' : ''}</span>
+            <button class="cce-btn cce-plus"  data-seg-id="${seg.segId}">+</button>
+          </div>
+          <button class="cce-remove" data-seg-id="${seg.segId}" title="Remove place">×</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  const addCard = `
+    <button class="city-card city-card-add" id="add-place-btn-edit">
+      <div class="city-card-add-inner">${ICONS.plus}<span>Add Place</span></div>
+    </button>`;
+
+  cityNav.innerHTML = `<div class="city-cards-row">${cards}${addCard}</div>`;
+
+  // ↑ / ↓ reorder
+  cityNav.querySelectorAll('.cce-up').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = editSegments.findIndex(s => s.segId === btn.dataset.segId);
+      if (idx > 0) {
+        [editSegments[idx - 1], editSegments[idx]] = [editSegments[idx], editSegments[idx - 1]];
+        renderPlaces();
+      }
+    });
+  });
+  cityNav.querySelectorAll('.cce-down').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = editSegments.findIndex(s => s.segId === btn.dataset.segId);
+      if (idx < editSegments.length - 1) {
+        [editSegments[idx], editSegments[idx + 1]] = [editSegments[idx + 1], editSegments[idx]];
+        renderPlaces();
+      }
+    });
+  });
+
+  // − / + days
+  cityNav.querySelectorAll('.cce-minus').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const seg = editSegments.find(s => s.segId === btn.dataset.segId);
+      if (seg && seg.nights > 1) { seg.nights--; renderPlaces(); }
+    });
+  });
+  cityNav.querySelectorAll('.cce-plus').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const seg = editSegments.find(s => s.segId === btn.dataset.segId);
+      if (seg) { seg.nights++; renderPlaces(); }
+    });
+  });
+
+  // × remove
+  cityNav.querySelectorAll('.cce-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = editSegments.findIndex(s => s.segId === btn.dataset.segId);
+      if (idx >= 0) { editSegments.splice(idx, 1); renderPlaces(); }
+    });
+  });
+
+  // Add Place
+  cityNav.querySelector('#add-place-btn-edit')?.addEventListener('click', addPlaceInEditMode);
+}
+
+// ── Places edit mode controls ─────────────────────────────────────────────────
+
+// Derive run-length encoded segments from trip.days (excludes transit/home bookends)
+function deriveSegmentsFromDays() {
+  const BOOKENDS = new Set(['transit', 'home']);
+  const segs     = [];
+  let cur        = null;
+
+  trip.days.forEach(day => {
+    if (BOOKENDS.has(day.placeKey)) return;
+    if (!cur || cur.key !== day.placeKey) {
+      cur = { segId: generateId(), key: day.placeKey, nights: 1 };
+      segs.push(cur);
+    } else {
+      cur.nights++;
+    }
+  });
+  return segs;
+}
+
+function enterPlacesEditMode() {
+  placesEditMode = true;
+  editSegments   = deriveSegmentsFromDays();
+  renderPlaces();
+}
+
+function exitPlacesEditMode(apply) {
+  if (apply) {
+    applyPlaceEdits();
+    renderRouteMap();
+    renderFilterBar();
+    renderDayList('all');
+    renderBookings();
+    showToast('Itinerary updated');
+  }
+  placesEditMode = false;
+  editSegments   = [];
+  renderPlaces();
+}
+
+function addPlaceInEditMode() {
+  const name = prompt('New place name (e.g. Osaka):');
+  if (!name?.trim()) return;
+
+  const key = name.trim().toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+
+  if (!trip.places[key]) {
+    // Create a basic place definition
+    const PALETTE = [
+      { color: '#6366f1', bg: '#ede9fe' }, { color: '#0284c7', bg: '#e0f2fe' },
+      { color: '#c53d2d', bg: '#fef2f0' }, { color: '#d97706', bg: '#fef3c7' },
+      { color: '#0d9488', bg: '#ccfbf1' },
+    ];
+    const p = PALETTE[Object.keys(trip.places).length % PALETTE.length];
+    trip.places[key] = {
+      name: name.trim(), color: p.color, bg: p.bg,
+      emoji: '📍', img: '', lat: null, lng: null,
+    };
+    saveTrip();
+  }
+
+  editSegments.push({ segId: generateId(), key, nights: 2 });
+  renderPlaces();
+}
+
+// Rebuild trip.days and trip.route from editSegments (push model)
+function applyPlaceEdits() {
+  // 1. Bake userEdits into day objects, keyed by old consecutive run index
+  const BOOKENDS = new Set(['transit', 'home']);
+
+  // Capture bookend content
+  const transitIdx  = trip.days.findIndex(d => d.placeKey === 'transit');
+  const homeIdx     = trip.days.findIndex(d => d.placeKey === 'home');
+  const transitData = transitIdx >= 0 ? {
+    ...trip.days[transitIdx], schedule: getSchedule(transitIdx), wishlist: getWishlist(transitIdx),
+  } : null;
+  const homeData = homeIdx >= 0 ? {
+    ...trip.days[homeIdx], schedule: getSchedule(homeIdx), wishlist: getWishlist(homeIdx),
+  } : null;
+
+  // Build content map for destination days: "{key}:{runIdx}:{localIdx}" → day
+  const contentMap = {};
+  let curKey = null, runIdx = -1, localIdx = 0;
+  const runCounts = {};
+
+  trip.days.forEach((day, i) => {
+    if (BOOKENDS.has(day.placeKey)) return;
+    if (day.placeKey !== curKey) {
+      curKey   = day.placeKey;
+      runIdx   = runCounts[curKey] || 0;
+      runCounts[curKey] = runIdx + 1;
+      localIdx = 0;
+    }
+    contentMap[`${curKey}:${runIdx}:${localIdx}`] = {
+      ...day, schedule: getSchedule(i), wishlist: getWishlist(i),
+    };
+    localIdx++;
+  });
+
+  // 2. Build new days array
+  const newDays  = [];
+  let curDate    = new Date(trip.meta.startDate + 'T12:00:00');
+  let dayNum     = 1;
+  const newRuns  = {}; // how many times we've seen each key so far in new segments
+
+  // Departure bookend (always 1 day)
+  newDays.push({
+    dayNum: 1,
+    date:   trip.meta.startDate,
+    placeKey: 'transit',
+    title:  defaultDayTitle('transit', 1),
+    stay:   transitData?.stay     || null,
+    schedule: transitData?.schedule || [],
+    wishlist: transitData?.wishlist || [],
+  });
+  curDate.setDate(curDate.getDate() + 1);
+  dayNum = 2;
+
+  // Destination segments
+  for (const seg of editSegments) {
+    const rIdx = newRuns[seg.key] || 0;
+    newRuns[seg.key] = rIdx + 1;
+
+    for (let li = 0; li < seg.nights; li++) {
+      const existing = contentMap[`${seg.key}:${rIdx}:${li}`];
+      newDays.push({
+        dayNum,
+        date:    curDate.toISOString().slice(0, 10),
+        placeKey: seg.key,
+        title:   defaultDayTitle(seg.key, li + 1),
+        stay:    existing?.stay     || null,
+        schedule: existing?.schedule || [],
+        wishlist: existing?.wishlist || [],
+      });
+      curDate.setDate(curDate.getDate() + 1);
+      dayNum++;
+    }
+  }
+
+  // Return bookend (always 1 day, pushed to end)
+  const returnDate = curDate.toISOString().slice(0, 10);
+  newDays.push({
+    dayNum,
+    date:    returnDate,
+    placeKey: 'home',
+    title:   defaultDayTitle('home', 1),
+    stay:    homeData?.stay     || null,
+    schedule: homeData?.schedule || [],
+    wishlist: homeData?.wishlist || [],
+  });
+
+  // 3. Rebuild route from new days
+  const newRoute = buildRouteFromDays(newDays);
+
+  // 4. Update trip
+  trip.days            = newDays;
+  trip.route           = newRoute;
+  trip.meta.endDate    = returnDate;
+  trip.meta.duration   = newDays.length;
+
+  // 5. Clear baked-in edits
+  userEdits = {};
+  saveEdits();
+  saveTrip();
+}
+
+// Build trip.route entries from a days array (run-length encode, skip bookends)
+function buildRouteFromDays(days) {
+  const BOOKENDS = new Set(['transit', 'home']);
+  const route    = [];
+  let runKey     = null;
+  let runStart   = null;
+
+  days.forEach((day, i) => {
+    const isBookend = BOOKENDS.has(day.placeKey);
+    const isLast    = i === days.length - 1;
+    const nextKey   = days[i + 1]?.placeKey;
+
+    if (!isBookend) {
+      if (!runKey) {
+        runKey   = day.placeKey;
+        runStart = new Date(day.date + 'T12:00:00');
+      } else if (day.placeKey !== runKey) {
+        // flush
+        const endDate = new Date(day.date + 'T12:00:00');
+        _pushRouteEntry(route, runKey, runStart, endDate);
+        runKey   = day.placeKey;
+        runStart = new Date(day.date + 'T12:00:00');
+      }
+    }
+
+    // Flush when we hit a bookend or end of array
+    if (runKey && (isBookend || isLast)) {
+      const endDate = isLast && !isBookend
+        ? (() => { const d = new Date(day.date + 'T12:00:00'); d.setDate(d.getDate() + 1); return d; })()
+        : new Date(day.date + 'T12:00:00');
+      _pushRouteEntry(route, runKey, runStart, endDate);
+      runKey = null; runStart = null;
+    }
+  });
+
+  return route;
+}
+
+function _pushRouteEntry(route, key, startDate, endDate) {
+  const place  = trip.places[key];
+  const nights = Math.round((endDate - startDate) / 86400000);
+  const fmt    = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  route.push({
+    key,
+    city:   place?.name || key,
+    dates:  `${fmt(startDate)}–${fmt(endDate)}`,
+    nights,
+  });
 }
 
 function filterByPlace(placeKey) {
@@ -2820,6 +3169,18 @@ async function init() {
       if (d.schedule?.length) d.schedule = d.schedule.filter(it => !LOGISTICAL.has(it.type));
     });
     trip.meta.version = 3;
+    saveTrip();
+  }
+
+  // Migration v4: auto-generate day titles as "<Place> Day N" (run-local numbering)
+  if ((trip.meta?.version || 1) < 4) {
+    let lastKey = null, localN = 0;
+    trip.days.forEach(d => {
+      if (d.placeKey !== lastKey) { lastKey = d.placeKey; localN = 1; }
+      else localN++;
+      d.title = defaultDayTitle(d.placeKey, localN);
+    });
+    trip.meta.version = 4;
     saveTrip();
   }
 
