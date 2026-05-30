@@ -1559,9 +1559,10 @@ function workerBookingToLocal(wb) {
 
   const category = categoryMap[wb.type] || 'hotel';
 
-  // Match city name → colorKey
+  // Flights are between places, not in one — always transit
+  // Hotels/activities: match city name → colorKey
   let colorKey = 'transit';
-  if (wb.city) {
+  if (category !== 'flight' && wb.city) {
     const cityLower = wb.city.toLowerCase();
     Object.entries(trip.places || {}).forEach(([key, place]) => {
       const pname = (place.name || '').toLowerCase();
