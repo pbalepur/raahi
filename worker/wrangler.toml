@@ -1,0 +1,20 @@
+name            = "raahi-worker"
+main            = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# KV namespace — fill in `id` after running: wrangler kv namespace create RAAHI_KV
+[[kv_namespaces]]
+binding = "RAAHI_KV"
+id      = "1ff06c7efd19442a85befe3bc726ef29"
+
+# Public variables (non-secret)
+[vars]
+ALLOWED_ORIGIN = "https://pbalepur.github.io"
+
+# Secrets (set via: wrangler secret put CLAUDE_API_KEY, wrangler secret put API_SECRET)
+# CLAUDE_API_KEY — Anthropic API key
+# API_SECRET     — random Bearer token the Raahi app will use
+
+# Email routing — routes mail arriving at bookings@heyraahi.com to this worker
+[[send_email]]
+name = "bookings"

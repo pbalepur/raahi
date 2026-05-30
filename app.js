@@ -1408,6 +1408,270 @@ function renderBookings() {
 }
 
 // ===================================================================
+//  WORKER / EMAIL INBOX
+// ===================================================================
+
+const WORKER_KEY = 'raahi_worker_config';
+
+function loadWorkerConfig() {
+  try { return JSON.parse(localStorage.getItem(WORKER_KEY) || 'null'); }
+  catch { return null; }
+}
+
+function saveWorkerConfig(cfg) {
+  localStorage.setItem(WORKER_KEY, JSON.stringify(cfg));
+}
+
+async function fetchPending() {
+  const cfg = loadWorkerConfig();
+  if (!cfg?.url || !cfg?.secret) return [];
+  try {
+    const res = await fetch(`${cfg.url}/api/pending`, {
+      headers: { 'Authorization': `Bearer ${cfg.secret}` }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch { return []; }
+}
+
+async function acceptPending(id) {
+  const cfg = loadWorkerConfig();
+  if (!cfg?.url || !cfg?.secret) return false;
+  try {
+    const res = await fetch(`${cfg.url}/api/pending/${id}/accept`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${cfg.secret}` }
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+async function rejectPending(id) {
+  const cfg = loadWorkerConfig();
+  if (!cfg?.url || !cfg?.secret) return false;
+  try {
+    const res = await fetch(`${cfg.url}/api/pending/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${cfg.secret}` }
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+// Convert Worker booking format → app booking format
+function workerBookingToLocal(wb) {
+  const categoryMap = {
+    hotel: 'hotel', flight: 'flight',
+    train: 'rail', transport: 'rail',
+    restaurant: 'hotel', activity: 'hotel', other: 'hotel'
+  };
+  const iconMap = {
+    hotel: 'hotel', flight: 'plane',
+    train: 'train', transport: 'train',
+    restaurant: 'hotel', activity: 'hotel', other: 'hotel'
+  };
+
+  const category = categoryMap[wb.type] || 'hotel';
+
+  // Match city name → colorKey
+  let colorKey = 'transit';
+  if (wb.city) {
+    const cityLower = wb.city.toLowerCase();
+    Object.entries(trip.places || {}).forEach(([key, place]) => {
+      const pname = (place.name || '').toLowerCase();
+      if (pname.includes(cityLower) || cityLower.includes(pname)) colorKey = key;
+    });
+  }
+
+  // Format cost string
+  let costStr = '';
+  if (wb.cost) {
+    const syms = { JPY: '¥', USD: '$', EUR: '€', GBP: '£' };
+    const sym = syms[wb.currency] || (wb.currency ? wb.currency + ' ' : '');
+    costStr = wb.currency === 'JPY'
+      ? `${sym}${Math.round(wb.cost).toLocaleString()}`
+      : `${sym}${wb.cost}`;
+  }
+
+  const booking = {
+    id:           generateId(),
+    category,
+    icon:         iconMap[wb.type] || 'hotel',
+    title:        wb.name || 'Booking',
+    confirmation: wb.confirmationNumber || '',
+    colorKey,
+    cost:         costStr,
+    notes:        wb.notes || '',
+  };
+
+  if (category === 'hotel') {
+    booking.checkIn  = wb.checkIn  || '';
+    booking.checkOut = wb.checkOut || '';
+  } else if (category === 'rail') {
+    booking.transitDate = wb.checkIn || '';
+    booking.transitTime = wb.time   || '';
+  } else if (category === 'flight') {
+    booking.outbound = {
+      flight:        wb.name || '',
+      departDate:    wb.checkIn || '',
+      departTime:    wb.time   || '',
+      arriveDate:    wb.checkOut || '',
+      departAirport: '',
+      arriveAirport: '',
+      arriveTime:    '',
+    };
+    booking.inbound = {};
+  }
+
+  return booking;
+}
+
+let pendingBookings = [];
+
+function updateInboxBadge(count) {
+  const badge = $('#inbox-badge');
+  if (!badge) return;
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'inline-flex' : 'none';
+}
+
+const INBOX_ICONS = {
+  hotel: '🏨', flight: '✈️', train: '🚅', transport: '🚌',
+  restaurant: '🍽️', activity: '⛩️', other: '📋',
+};
+
+function renderInbox(items) {
+  const container = $('#inbox-section');
+  if (!container) return;
+
+  if (!items.length) {
+    const cfg = loadWorkerConfig();
+    if (!cfg?.url) {
+      container.innerHTML = `
+        <div class="inbox-empty inbox-configure">
+          <span class="inbox-empty-icon">📬</span>
+          <div class="inbox-empty-body">
+            <strong>Connect your inbox</strong>
+            <p>Forward booking confirmations to <strong>bookings@heyraahi.com</strong> and they'll appear here automatically.</p>
+            <button class="btn btn-outline btn-sm" id="inbox-configure-btn">Configure</button>
+          </div>
+        </div>`;
+      $('#inbox-configure-btn')?.addEventListener('click', openWorkerSettings);
+    } else {
+      container.innerHTML = '';
+    }
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="inbox-wrap">
+      <div class="inbox-header">
+        <span class="inbox-title">📬 From email <span class="inbox-count">${items.length}</span></span>
+        <span class="inbox-hint">Review and add to your trip</span>
+      </div>
+      <div class="inbox-list">
+        ${items.map(wb => {
+          const icon = INBOX_ICONS[wb.type] || '📋';
+          const d1   = wb.checkIn  ? fmtBookingDate(wb.checkIn)  : '';
+          const d2   = wb.checkOut ? fmtBookingDate(wb.checkOut) : '';
+          const dateStr = d1 ? (d2 ? `${d1} → ${d2}` : d1) : '';
+          const confBadge = wb.confidence === 'low'
+            ? '<span class="inbox-conf inbox-conf-low">low confidence</span>'
+            : wb.confidence === 'medium'
+              ? '<span class="inbox-conf inbox-conf-med">review</span>'
+              : '';
+          return `
+            <div class="inbox-card" data-id="${wb.id}">
+              <div class="inbox-card-icon">${icon}</div>
+              <div class="inbox-card-body">
+                <div class="inbox-card-name">${escHtml(wb.name || 'Booking')} ${confBadge}</div>
+                ${dateStr ? `<div class="inbox-card-date">${dateStr}</div>` : ''}
+                ${wb.city ? `<div class="inbox-card-meta">${escHtml(wb.city)}</div>` : ''}
+                ${wb.confirmationNumber ? `<div class="inbox-card-meta">Ref: ${escHtml(wb.confirmationNumber)}</div>` : ''}
+              </div>
+              <div class="inbox-card-actions">
+                <button class="inbox-btn inbox-btn-accept" data-id="${wb.id}">✓ Add</button>
+                <button class="inbox-btn inbox-btn-reject" data-id="${wb.id}">✕</button>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  // Accept
+  container.querySelectorAll('.inbox-btn-accept').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      const wb = pendingBookings.find(b => b.id === id);
+      if (!wb) return;
+      btn.textContent = '…';
+      btn.disabled = true;
+      const ok = await acceptPending(id);
+      if (ok) {
+        trip.bookings.push(workerBookingToLocal(wb));
+        saveTrip();
+        pendingBookings = pendingBookings.filter(b => b.id !== id);
+        renderInbox(pendingBookings);
+        renderBookings();
+        updateInboxBadge(pendingBookings.length);
+      } else {
+        btn.textContent = '✓ Add';
+        btn.disabled = false;
+      }
+    });
+  });
+
+  // Reject
+  container.querySelectorAll('.inbox-btn-reject').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      btn.closest('.inbox-card').style.opacity = '0.4';
+      await rejectPending(id);
+      pendingBookings = pendingBookings.filter(b => b.id !== id);
+      renderInbox(pendingBookings);
+      updateInboxBadge(pendingBookings.length);
+    });
+  });
+}
+
+async function initInbox() {
+  const cfg = loadWorkerConfig();
+  if (!cfg?.url || !cfg?.secret) {
+    renderInbox([]);
+    return;
+  }
+  pendingBookings = await fetchPending();
+  renderInbox(pendingBookings);
+  updateInboxBadge(pendingBookings.length);
+}
+
+function openWorkerSettings() {
+  const modal = $('#worker-settings-modal');
+  if (!modal) return;
+  const cfg = loadWorkerConfig() || {};
+  modal.querySelector('[name="worker-url"]').value    = cfg.url    || 'https://raahi-worker.prashant-balepur.workers.dev';
+  modal.querySelector('[name="worker-secret"]').value = cfg.secret || '';
+  modal.classList.add('open');
+}
+
+function initWorkerSettings() {
+  const modal = $('#worker-settings-modal');
+  if (!modal) return;
+  modal.querySelectorAll('.wsm-close').forEach(btn =>
+    btn.addEventListener('click', () => modal.classList.remove('open'))
+  );
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
+  modal.querySelector('#worker-settings-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url    = modal.querySelector('[name="worker-url"]').value.trim().replace(/\/$/, '');
+    const secret = modal.querySelector('[name="worker-secret"]').value.trim();
+    saveWorkerConfig({ url, secret });
+    modal.classList.remove('open');
+    await initInbox();
+  });
+}
+
+// ===================================================================
 //  Booking Panel (slide-out editor)
 // ===================================================================
 
@@ -2470,11 +2734,17 @@ async function init() {
   initAsk();
   initNotifications();
   initExportImport();
+  initWorkerSettings();
+  initInbox();
   updateMobileNav();
 
   // Booking add button
   const addTopBtn = $('#booking-add-top');
   if (addTopBtn) addTopBtn.addEventListener('click', () => openNewBookingForm());
+
+  // Inbox settings button
+  const inboxSettingsBtn = $('#inbox-settings-btn');
+  if (inboxSettingsBtn) inboxSettingsBtn.addEventListener('click', openWorkerSettings);
 
   // Panel close handlers
   const panel = $('#day-panel');
