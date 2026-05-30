@@ -78,7 +78,7 @@ export default {
 
     const cors = {
       'Access-Control-Allow-Origin':  env.ALLOWED_ORIGIN || 'https://pbalepur.github.io',
-      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
 
@@ -133,6 +133,22 @@ export default {
       if (path === '/api/trips' && request.method === 'POST') {
         const body = await request.json();
         await env.RAAHI_KV.put('trips', JSON.stringify(body));
+        return json({ ok: true }, 200, cors);
+      }
+
+      // GET /api/trip/:id/data  (fetch full trip data)
+      if (/^\/api\/trip\/[\w-]+\/data$/.test(path) && request.method === 'GET') {
+        const tripId = path.split('/')[3];
+        const data = await env.RAAHI_KV.get(`tripdata:${tripId}`, 'json');
+        if (!data) return json({ error: 'Not found' }, 404, cors);
+        return json(data, 200, cors);
+      }
+
+      // PUT /api/trip/:id/data  (save full trip data)
+      if (/^\/api\/trip\/[\w-]+\/data$/.test(path) && request.method === 'PUT') {
+        const tripId = path.split('/')[3];
+        const body = await request.json();
+        await env.RAAHI_KV.put(`tripdata:${tripId}`, JSON.stringify(body));
         return json({ ok: true }, 200, cors);
       }
 

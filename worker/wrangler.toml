@@ -1,6 +1,7 @@
 name            = "raahi-worker"
 main            = "src/index.js"
 compatibility_date = "2025-01-01"
+account_id      = "c8dbc520e7abfbf9706d2a637eb2af81"
 
 # KV namespace — fill in `id` after running: wrangler kv namespace create RAAHI_KV
 [[kv_namespaces]]
