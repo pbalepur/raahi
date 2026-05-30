@@ -2771,6 +2771,20 @@ async function init() {
     } catch {}
   }
 
+  // Migration v2: remove hardcoded flight travel from day objects
+  // (flights now cross-reference from trip.bookings[] automatically)
+  if ((trip.meta?.version || 1) < 2) {
+    let changed = false;
+    trip.days.forEach(d => {
+      if (d.travel?.mode === 'flight') {
+        delete d.travel;
+        changed = true;
+      }
+    });
+    trip.meta.version = 2;
+    if (changed) saveTrip();
+  }
+
   // Render everything
   renderPlaces();
   renderRouteMap();
