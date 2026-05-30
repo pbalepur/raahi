@@ -202,23 +202,27 @@ function exitEditMode() {
 
 // ─── Remote sync ─────────────────────────────────────────────────────────────
 
-// Fire-and-forget push to Cloudflare KV (no-op in view-only mode)
+// Debounced push to Cloudflare KV — coalesces rapid edits into one write
+let _pushTimer = null;
 function pushTripToWorker() {
   const token = getWriteToken();
   if (!token) return;
-  fetch(`${WORKER_URL}/api/trip/${TRIP_ID}/data`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(trip),
-  }).then(res => {
-    if (res.status === 401 || res.status === 403) {
-      exitEditMode();
-      showToast('Edit access denied — switched to view only');
-    }
-  }).catch(() => {});
+  clearTimeout(_pushTimer);
+  _pushTimer = setTimeout(() => {
+    fetch(`${WORKER_URL}/api/trip/${TRIP_ID}/data`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(trip),
+    }).then(res => {
+      if (res.status === 401 || res.status === 403) {
+        exitEditMode();
+        showToast('Edit access denied — switched to view only');
+      }
+    }).catch(() => {});
+  }, 3000); // wait 3s of inactivity before pushing
 }
 
 // Fetch full trip data from Cloudflare KV (returns null on failure or 404)
@@ -2393,7 +2397,7 @@ async function initInbox() {
   renderInbox(pendingBookings);
   updateInboxBadge(pendingBookings.length);
 
-  // Poll every 30s for new bookings, but only when the page is visible
+  // Poll every 5 minutes (not 30s — KV list ops are limited on free tier)
   setInterval(async () => {
     if (document.visibilityState !== 'visible') return;
     const fresh = await fetchPending();
@@ -2402,11 +2406,14 @@ async function initInbox() {
       renderInbox(pendingBookings);
       updateInboxBadge(pendingBookings.length);
     }
-  }, 30_000);
+  }, 300_000);
 
-  // Also refresh immediately when the user switches back to this tab
+  // Refresh on tab focus, but throttle to at most once per minute
+  let lastInboxRefresh = Date.now();
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState !== 'visible') return;
+    if (Date.now() - lastInboxRefresh < 60_000) return;
+    lastInboxRefresh = Date.now();
     const fresh = await fetchPending();
     if (JSON.stringify(fresh) !== JSON.stringify(pendingBookings)) {
       pendingBookings = fresh;
@@ -3401,9 +3408,15 @@ function showUndoToast(msg, undoFn) {
 // ===================================================================
 
 async function init() {
-  // Load trip: race localStorage against Cloudflare KV, use whichever is newer
-  const local  = loadTrip();
-  const remote = await fetchRemoteTrip();
+  // Load trip: prefer localStorage if it was synced within the last 10 minutes
+  // (avoids a KV read on every page load when data is already fresh locally)
+  const local = loadTrip();
+  const localAge = local?.meta?.savedAt
+    ? Date.now() - new Date(local.meta.savedAt).getTime()
+    : Infinity;
+  const skipRemote = localAge < 10 * 60 * 1000; // 10 minutes
+
+  const remote = skipRemote ? null : await fetchRemoteTrip();
 
   if (local && remote) {
     // Both exist — pick the one saved most recently
