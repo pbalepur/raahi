@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=19">
+  <link rel="stylesheet" href="styles.css?v=20">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body class="is-trip">
@@ -75,15 +75,13 @@
     <!-- Places (was "Your Cities") -->
     <section class="section route-section" id="route">
       <div class="container">
-        <div class="section-intro section-intro-row">
-          <div>
-            <span class="label">The Route</span>
-            <h2>Places</h2>
-            <p class="section-desc" id="places-desc">Tap a place to filter its days in the itinerary.</p>
-          </div>
-          <div class="places-edit-actions" id="places-edit-actions"></div>
+        <div class="section-intro">
+          <span class="label">The Route</span>
+          <h2>Places</h2>
+          <p class="section-desc">Tap a place to filter its days in the itinerary.</p>
         </div>
         <div id="route-map" class="route-map"></div>
+        <div class="places-edit-strip" id="places-edit-strip"></div>
         <div class="city-nav-grid" id="city-nav"></div>
       </div>
     </section>
@@ -220,6 +218,20 @@
     </div>
   </aside>
 
+  <!-- IEP — Itinerary Edit Panel (slide-in from right) -->
+  <aside class="iep-panel" id="iep-panel" role="dialog" aria-label="Edit itinerary">
+    <div class="iep-backdrop" id="iep-backdrop"></div>
+    <div class="iep-content">
+      <header class="iep-header">
+        <h3 class="iep-title">Edit Itinerary</h3>
+        <button class="iep-close" id="iep-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="iep-dates-strip" id="iep-dates-strip"></div>
+      <div class="iep-body" id="iep-body"></div>
+      <footer class="iep-footer" id="iep-footer"></footer>
+    </div>
+  </aside>
+
   <!-- Add Place Modal -->
   <div class="bulk-modal" id="add-place-modal">
     <div class="bulk-content" style="max-width:420px">
@@ -285,6 +297,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="app.js?v=19"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>

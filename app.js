@@ -138,11 +138,15 @@ const EDITS_KEY = 'raahi_v4_edits';
 let trip = null;       // The full trip data
 let userEdits = {};    // User overrides per day
 
-// Places edit mode state
-let placesEditMode   = false;
-let editSegments     = []; // [{segId, key, nights}] — staged changes, not yet committed
-let pendingRemoveId  = null; // segId currently showing inline remove confirmation
-let removedSegStack  = [];   // [{seg, index}] — stack for undo
+// IEP (Itinerary Edit Panel) state
+let iepOpen        = false;
+let iepSegments    = [];     // [{segId, key, nights}] — staged changes
+let iepDepartDate  = '';     // YYYY-MM-DD
+let iepReturnDate  = '';     // YYYY-MM-DD
+let iepPendingDel  = null;   // segId showing remove confirmation
+let iepDelStack    = [];     // [{seg, index}] undo stack
+let iepAutoBalance = false;  // when true, last segment absorbs surplus/deficit
+let iepAddingPlace = false;  // add-place modal was opened from IEP
 
 function loadTrip() {
   try {
@@ -413,41 +417,24 @@ function defaultDayTitle(placeKey, localN) {
 // ── Places section render ─────────────────────────────────────────────────────
 
 function renderPlaces() {
-  const cityNav   = $('#city-nav');
-  const actionsEl = $('#places-edit-actions');
-  const descEl    = $('#places-desc');
+  const cityNav = $('#city-nav');
   if (!cityNav) return;
+  renderPlacesNormal(cityNav);
+  renderPlacesEditStrip();
+}
 
-  // ── Header action buttons ─────────────────────────────
-  if (actionsEl) {
-    if (placesEditMode) {
-      const total = editSegments.reduce((s, seg) => s + seg.nights, 0) + 2; // +2 for transit + home
-      actionsEl.innerHTML = `
-        <span class="places-total-days">${total} days total</span>
-        <button class="btn btn-primary btn-sm places-done-btn">Done</button>
-        <button class="btn btn-outline btn-sm places-cancel-btn">Cancel</button>
-      `;
-      actionsEl.querySelector('.places-done-btn').addEventListener('click',   () => exitPlacesEditMode(true));
-      actionsEl.querySelector('.places-cancel-btn').addEventListener('click', () => exitPlacesEditMode(false));
-    } else {
-      actionsEl.innerHTML = `<button class="btn btn-outline btn-sm places-edit-btn">${ICONS.edit} Edit</button>`;
-      actionsEl.querySelector('.places-edit-btn').addEventListener('click', enterPlacesEditMode);
-    }
-  }
-
-  // ── Description text ──────────────────────────────────
-  if (descEl) {
-    descEl.textContent = placesEditMode
-      ? 'Use ↑ ↓ to reorder · + / − to adjust days · × to remove'
-      : 'Tap a place to filter its days in the itinerary.';
-  }
-
-  // ── Cards ─────────────────────────────────────────────
-  if (placesEditMode) {
-    renderPlacesEditMode(cityNav);
-  } else {
-    renderPlacesNormal(cityNav);
-  }
+function renderPlacesEditStrip() {
+  const strip = $('#places-edit-strip');
+  if (!strip) return;
+  const nights = trip.days.filter(d => d.placeKey !== 'transit' && d.placeKey !== 'home').length;
+  const places = new Set(
+    trip.days.filter(d => d.placeKey !== 'transit' && d.placeKey !== 'home').map(d => d.placeKey)
+  ).size;
+  strip.innerHTML = `
+    <span class="pes-summary">${nights} nights · ${places} place${places !== 1 ? 's' : ''}</span>
+    <button class="btn btn-dark btn-sm" id="pes-edit-btn">✎ Edit Itinerary</button>
+  `;
+  strip.querySelector('#pes-edit-btn')?.addEventListener('click', openIEP);
 }
 
 function renderPlacesNormal(cityNav) {
@@ -498,149 +485,7 @@ function renderPlacesNormal(cityNav) {
   if (addBtn) addBtn.addEventListener('click', openAddPlaceModal);
 }
 
-function renderPlacesEditMode(cityNav) {
-  const cards = editSegments.map((seg, i) => {
-    const place   = trip.places[seg.key];
-    if (!place) return '';
-    const isFirst   = i === 0;
-    const isLast    = i === editSegments.length - 1;
-    const isPending = pendingRemoveId === seg.segId;
-
-    // How many days of content would be lost (from original trip.days)
-    const contentDays = trip.days.filter(d => d.placeKey === seg.key &&
-      ((d.schedule?.length || 0) + (d.wishlist?.length || 0) > 0)).length;
-
-    const editBar = isPending
-      ? `<div class="city-card-edit-bar city-card-remove-confirm">
-           <span class="cce-warn">Remove ${escHtml(place.name)}?${contentDays > 0 ? ` ${contentDays} day${contentDays !== 1 ? 's' : ''} of activities will be lost.` : ''}</span>
-           <button class="cce-confirm-remove" data-seg-id="${seg.segId}">Remove</button>
-           <button class="cce-confirm-keep"   data-seg-id="${seg.segId}">Keep</button>
-         </div>`
-      : `<div class="city-card-edit-bar">
-           <div class="city-card-reorder">
-             <button class="cce-btn cce-up"   data-seg-id="${seg.segId}" title="Move up"   ${isFirst ? 'disabled' : ''}>↑</button>
-             <button class="cce-btn cce-down" data-seg-id="${seg.segId}" title="Move down" ${isLast  ? 'disabled' : ''}>↓</button>
-           </div>
-           <div class="city-card-nights">
-             <button class="cce-btn cce-minus" data-seg-id="${seg.segId}" ${seg.nights <= 1 ? 'disabled' : ''}>−</button>
-             <span class="cce-nights-count">${seg.nights}</span>
-             <span class="cce-nights-label">day${seg.nights !== 1 ? 's' : ''}</span>
-             <button class="cce-btn cce-plus"  data-seg-id="${seg.segId}">+</button>
-           </div>
-           <button class="cce-remove" data-seg-id="${seg.segId}" title="Remove place">×</button>
-         </div>`;
-
-    return `
-      <div class="city-card city-card-editing${isPending ? ' city-card-remove-pending' : ''}" data-seg-id="${seg.segId}" style="--city-color:${place.color}; --city-bg:${place.bg}">
-        ${place.img ? `<div class="city-card-img"><img src="${place.img}" alt="${escHtml(place.name)}" loading="lazy"></div>` : ''}
-        <div class="city-card-body">
-          <div class="city-card-info">
-            <h3>${place.emoji} ${escHtml(place.name)}</h3>
-            <span class="city-meta">${seg.nights} day${seg.nights !== 1 ? 's' : ''}</span>
-          </div>
-        </div>
-        ${editBar}
-      </div>`;
-  }).join('');
-
-  const addCard = `
-    <button class="city-card city-card-add" id="add-place-btn-edit">
-      <div class="city-card-add-inner">${ICONS.plus}<span>Add Place</span></div>
-    </button>`;
-
-  cityNav.innerHTML = `<div class="city-cards-row">${cards}${addCard}</div>`;
-
-  // ↑ / ↓ reorder
-  cityNav.querySelectorAll('.cce-up').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      pendingRemoveId = null;
-      const idx = editSegments.findIndex(s => s.segId === btn.dataset.segId);
-      if (idx > 0) {
-        [editSegments[idx - 1], editSegments[idx]] = [editSegments[idx], editSegments[idx - 1]];
-        renderPlaces();
-      }
-    });
-  });
-  cityNav.querySelectorAll('.cce-down').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      pendingRemoveId = null;
-      const idx = editSegments.findIndex(s => s.segId === btn.dataset.segId);
-      if (idx < editSegments.length - 1) {
-        [editSegments[idx], editSegments[idx + 1]] = [editSegments[idx + 1], editSegments[idx]];
-        renderPlaces();
-      }
-    });
-  });
-
-  // − / + days
-  cityNav.querySelectorAll('.cce-minus').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      pendingRemoveId = null;
-      const seg = editSegments.find(s => s.segId === btn.dataset.segId);
-      if (seg && seg.nights > 1) { seg.nights--; renderPlaces(); }
-    });
-  });
-  cityNav.querySelectorAll('.cce-plus').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      pendingRemoveId = null;
-      const seg = editSegments.find(s => s.segId === btn.dataset.segId);
-      if (seg) { seg.nights++; renderPlaces(); }
-    });
-  });
-
-  // × → show inline confirmation
-  cityNav.querySelectorAll('.cce-remove').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      pendingRemoveId = pendingRemoveId === btn.dataset.segId ? null : btn.dataset.segId;
-      renderPlaces();
-    });
-  });
-
-  // Confirm remove
-  cityNav.querySelectorAll('.cce-confirm-remove').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const segId = btn.dataset.segId;
-      const idx   = editSegments.findIndex(s => s.segId === segId);
-      if (idx < 0) return;
-
-      const removed = editSegments[idx];
-      const place   = trip.places[removed.key];
-      removedSegStack.push({ seg: { ...removed }, index: idx });
-      editSegments.splice(idx, 1);
-      pendingRemoveId = null;
-      renderPlaces();
-
-      showUndoToast(`Removed ${place?.name || removed.key}`, () => {
-        const entry = removedSegStack.find(e => e.seg.segId === segId);
-        if (!entry) return;
-        removedSegStack.splice(removedSegStack.indexOf(entry), 1);
-        const insertAt = Math.min(entry.index, editSegments.length);
-        editSegments.splice(insertAt, 0, entry.seg);
-        renderPlaces();
-      });
-    });
-  });
-
-  // Cancel remove
-  cityNav.querySelectorAll('.cce-confirm-keep').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      pendingRemoveId = null;
-      renderPlaces();
-    });
-  });
-
-  // Add Place
-  cityNav.querySelector('#add-place-btn-edit')?.addEventListener('click', addPlaceInEditMode);
-}
-
-// ── Places edit mode controls ─────────────────────────────────────────────────
+// ── Segment helpers ───────────────────────────────────────────────────────────
 
 // Derive run-length encoded segments from trip.days (excludes transit/home bookends)
 function deriveSegmentsFromDays() {
@@ -660,59 +505,8 @@ function deriveSegmentsFromDays() {
   return segs;
 }
 
-function enterPlacesEditMode() {
-  placesEditMode  = true;
-  editSegments    = deriveSegmentsFromDays();
-  pendingRemoveId = null;
-  removedSegStack = [];
-  renderPlaces();
-}
-
-function exitPlacesEditMode(apply) {
-  if (apply) {
-    applyPlaceEdits();
-    renderRouteMap();
-    renderFilterBar();
-    renderDayList('all');
-    renderBookings();
-    showToast('Itinerary updated');
-  }
-  placesEditMode  = false;
-  editSegments    = [];
-  pendingRemoveId = null;
-  removedSegStack = [];
-  renderPlaces();
-}
-
-function addPlaceInEditMode() {
-  const name = prompt('New place name (e.g. Osaka):');
-  if (!name?.trim()) return;
-
-  const key = name.trim().toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '');
-
-  if (!trip.places[key]) {
-    // Create a basic place definition
-    const PALETTE = [
-      { color: '#6366f1', bg: '#ede9fe' }, { color: '#0284c7', bg: '#e0f2fe' },
-      { color: '#c53d2d', bg: '#fef2f0' }, { color: '#d97706', bg: '#fef3c7' },
-      { color: '#0d9488', bg: '#ccfbf1' },
-    ];
-    const p = PALETTE[Object.keys(trip.places).length % PALETTE.length];
-    trip.places[key] = {
-      name: name.trim(), color: p.color, bg: p.bg,
-      emoji: '📍', img: '', lat: null, lng: null,
-    };
-    saveTrip();
-  }
-
-  editSegments.push({ segId: generateId(), key, nights: 2 });
-  renderPlaces();
-}
-
-// Rebuild trip.days and trip.route from editSegments (push model)
-function applyPlaceEdits() {
+// Rebuild trip.days and trip.route from iepSegments + iepDepartDate / iepReturnDate
+function applyIEPChanges() {
   // 1. Bake userEdits into day objects, keyed by old consecutive run index
   const BOOKENDS = new Set(['transit', 'home']);
 
@@ -747,17 +541,15 @@ function applyPlaceEdits() {
 
   // 2. Build new days array
   const newDays  = [];
-  let curDate    = new Date(trip.meta.startDate + 'T12:00:00');
+  let curDate    = new Date(iepDepartDate + 'T12:00:00');
   let dayNum     = 1;
-  const newRuns  = {}; // how many times we've seen each key so far in new segments
+  const newRuns  = {};
 
-  // Departure bookend (always 1 day)
+  // Departure bookend
   newDays.push({
-    dayNum: 1,
-    date:   trip.meta.startDate,
-    placeKey: 'transit',
-    title:  defaultDayTitle('transit', 1),
-    stay:   transitData?.stay     || null,
+    dayNum: 1, date: iepDepartDate, placeKey: 'transit',
+    title:    defaultDayTitle('transit', 1),
+    stay:     transitData?.stay     || null,
     schedule: transitData?.schedule || [],
     wishlist: transitData?.wishlist || [],
   });
@@ -765,18 +557,15 @@ function applyPlaceEdits() {
   dayNum = 2;
 
   // Destination segments
-  for (const seg of editSegments) {
+  for (const seg of iepSegments) {
     const rIdx = newRuns[seg.key] || 0;
     newRuns[seg.key] = rIdx + 1;
-
     for (let li = 0; li < seg.nights; li++) {
       const existing = contentMap[`${seg.key}:${rIdx}:${li}`];
       newDays.push({
-        dayNum,
-        date:    curDate.toISOString().slice(0, 10),
-        placeKey: seg.key,
-        title:   defaultDayTitle(seg.key, li + 1),
-        stay:    existing?.stay     || null,
+        dayNum, date: curDate.toISOString().slice(0, 10), placeKey: seg.key,
+        title:    defaultDayTitle(seg.key, li + 1),
+        stay:     existing?.stay     || null,
         schedule: existing?.schedule || [],
         wishlist: existing?.wishlist || [],
       });
@@ -785,28 +574,23 @@ function applyPlaceEdits() {
     }
   }
 
-  // Return bookend (always 1 day, pushed to end)
-  const returnDate = curDate.toISOString().slice(0, 10);
+  // Return bookend — use iepReturnDate directly
   newDays.push({
-    dayNum,
-    date:    returnDate,
-    placeKey: 'home',
-    title:   defaultDayTitle('home', 1),
-    stay:    homeData?.stay     || null,
+    dayNum, date: iepReturnDate, placeKey: 'home',
+    title:    defaultDayTitle('home', 1),
+    stay:     homeData?.stay     || null,
     schedule: homeData?.schedule || [],
     wishlist: homeData?.wishlist || [],
   });
 
-  // 3. Rebuild route from new days
-  const newRoute = buildRouteFromDays(newDays);
+  // 3. Rebuild route + update trip
+  trip.days             = newDays;
+  trip.route            = buildRouteFromDays(newDays);
+  trip.meta.startDate   = iepDepartDate;
+  trip.meta.endDate     = iepReturnDate;
+  trip.meta.duration    = newDays.length;
 
-  // 4. Update trip
-  trip.days            = newDays;
-  trip.route           = newRoute;
-  trip.meta.endDate    = returnDate;
-  trip.meta.duration   = newDays.length;
-
-  // 5. Clear baked-in edits
+  // 4. Clear baked-in edits
   userEdits = {};
   saveEdits();
   saveTrip();
@@ -861,6 +645,336 @@ function _pushRouteEntry(route, key, startDate, endDate) {
     nights,
   });
 }
+
+// ===================================================================
+//  IEP — ITINERARY EDIT PANEL
+// ===================================================================
+
+function iepPoolNights() {
+  return Math.round((parseDate(iepReturnDate) - parseDate(iepDepartDate)) / 86400000) - 1;
+}
+
+function iepAllocated() {
+  return iepSegments.reduce((s, seg) => s + seg.nights, 0);
+}
+
+function iepGapNights() {
+  return iepPoolNights() - iepAllocated();
+}
+
+function iepRebalance() {
+  if (!iepSegments.length) return;
+  const gap = iepGapNights();
+  if (gap === 0) return;
+  const last   = iepSegments[iepSegments.length - 1];
+  last.nights  = Math.max(1, last.nights + gap);
+}
+
+// Returns array of {start, end (exclusive)} per segment, based on iepDepartDate
+function iepComputeSegmentDates() {
+  const dates  = [];
+  const curDate = new Date(iepDepartDate + 'T12:00:00');
+  curDate.setDate(curDate.getDate() + 1); // day after departure
+  for (const seg of iepSegments) {
+    const start = curDate.toISOString().slice(0, 10);
+    curDate.setDate(curDate.getDate() + seg.nights);
+    dates.push({ start, end: curDate.toISOString().slice(0, 10) });
+  }
+  return dates;
+}
+
+function openIEP() {
+  iepSegments    = deriveSegmentsFromDays();
+  iepDepartDate  = trip.meta.startDate;
+  iepReturnDate  = trip.meta.endDate;
+  iepPendingDel  = null;
+  iepDelStack    = [];
+  iepAutoBalance = false;
+  iepAddingPlace = false;
+  iepOpen        = true;
+  $('#iep-panel')?.classList.add('open');
+  renderIEP();
+}
+
+function closeIEP() {
+  iepOpen = false;
+  $('#iep-panel')?.classList.remove('open');
+}
+
+function renderIEP() {
+  renderIEPDatesStrip();
+  renderIEPBody();
+  renderIEPFooter();
+}
+
+function renderIEPDatesStrip() {
+  const el = $('#iep-dates-strip');
+  if (!el) return;
+
+  // Destroy any existing flatpickr instances before replacing the DOM
+  el.querySelector('#iep-depart-fp')?._flatpickr?.destroy();
+  el.querySelector('#iep-return-fp')?._flatpickr?.destroy();
+
+  const pool  = iepPoolNights();
+  const alloc = iepAllocated();
+  const gap   = pool - alloc;
+
+  let statusClass, statusText;
+  if (gap === 0) {
+    statusClass = 'iep-status-ok';
+    statusText  = `${alloc} of ${pool} · Balanced`;
+  } else if (gap > 0) {
+    statusClass = 'iep-status-warn';
+    statusText  = `${alloc} of ${pool} · ${gap} gap`;
+  } else {
+    statusClass = 'iep-status-err';
+    statusText  = `${alloc} of ${pool} · ${Math.abs(gap)} over`;
+  }
+
+  el.innerHTML = `
+    <div class="iep-date-field">
+      <span class="iep-date-label">Depart</span>
+      <input type="text" class="iep-date-input" id="iep-depart-fp" readonly>
+    </div>
+    <span class="iep-dates-sep">→</span>
+    <div class="iep-date-field">
+      <span class="iep-date-label">Return</span>
+      <input type="text" class="iep-date-input" id="iep-return-fp" readonly>
+    </div>
+    <div class="iep-status ${statusClass}"><span class="iep-status-dot"></span>${statusText}</div>
+  `;
+
+  if (typeof flatpickr !== 'undefined') {
+    flatpickr('#iep-depart-fp', {
+      defaultDate:    iepDepartDate,
+      dateFormat:     'Y-m-d',
+      altInput:       true,
+      altFormat:      'M j',
+      altInputClass:  'iep-date-input',
+      disableMobile:  true,
+      onChange(dates) {
+        if (!dates[0]) return;
+        const d = dates[0].toISOString().slice(0, 10);
+        if (d >= iepReturnDate) return;
+        iepDepartDate = d;
+        if (iepAutoBalance) iepRebalance();
+        renderIEP();
+      },
+    });
+    flatpickr('#iep-return-fp', {
+      defaultDate:    iepReturnDate,
+      dateFormat:     'Y-m-d',
+      altInput:       true,
+      altFormat:      'M j',
+      altInputClass:  'iep-date-input',
+      disableMobile:  true,
+      onChange(dates) {
+        if (!dates[0]) return;
+        const d = dates[0].toISOString().slice(0, 10);
+        if (d <= iepDepartDate) return;
+        iepReturnDate = d;
+        if (iepAutoBalance) iepRebalance();
+        renderIEP();
+      },
+    });
+  }
+}
+
+function renderIEPBody() {
+  const el = $('#iep-body');
+  if (!el) return;
+
+  const segDates = iepComputeSegmentDates();
+  const gap      = iepGapNights();
+  const fmt      = s => parseDate(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const fmtRange = (start, endExcl) => {
+    const endIncl = new Date(parseDate(endExcl).getTime() - 86400000).toISOString().slice(0, 10);
+    return start === endIncl ? fmt(start) : `${fmt(start)} – ${fmt(endIncl)}`;
+  };
+
+  let html = `
+    <div class="iep-row iep-row-bookend">
+      <span class="iep-row-icon">✈️</span>
+      <span class="iep-row-name">Departure</span>
+      <span class="iep-row-date">${fmt(iepDepartDate)}</span>
+    </div>`;
+
+  iepSegments.forEach((seg, i) => {
+    const place   = trip.places[seg.key];
+    if (!place) return;
+    const isFirst   = i === 0;
+    const isLast    = i === iepSegments.length - 1;
+    const isPending = iepPendingDel === seg.segId;
+
+    if (isPending) {
+      const usedDays = trip.days.filter(d => d.placeKey === seg.key &&
+        ((d.schedule?.length || 0) + (d.wishlist?.length || 0) > 0)).length;
+      html += `
+        <div class="iep-row iep-row-segment iep-row-pending" data-seg-id="${seg.segId}">
+          <span class="iep-row-icon">${place.emoji}</span>
+          <div class="iep-row-confirm">
+            <span class="iep-confirm-msg">Remove ${escHtml(place.name)}?${usedDays > 0 ? ` ${usedDays} day${usedDays !== 1 ? 's' : ''} of activities will be lost.` : ''}</span>
+            <div class="iep-confirm-btns">
+              <button class="iep-confirm-remove" data-seg-id="${seg.segId}">Remove</button>
+              <button class="iep-confirm-keep"   data-seg-id="${seg.segId}">Keep</button>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      html += `
+        <div class="iep-row iep-row-segment" data-seg-id="${seg.segId}">
+          <span class="iep-row-icon">${place.emoji}</span>
+          <div class="iep-row-info">
+            <span class="iep-row-name">${escHtml(place.name)}</span>
+            <span class="iep-row-date">${fmtRange(segDates[i].start, segDates[i].end)}</span>
+          </div>
+          <div class="iep-row-stepper">
+            <button class="iep-btn iep-minus" data-seg-id="${seg.segId}" ${seg.nights <= 1 ? 'disabled' : ''}>−</button>
+            <span class="iep-nights">${seg.nights}<span class="iep-nights-label">n</span></span>
+            <button class="iep-btn iep-plus" data-seg-id="${seg.segId}">+</button>
+          </div>
+          <div class="iep-row-order">
+            <button class="iep-btn iep-up"   data-seg-id="${seg.segId}" ${isFirst ? 'disabled' : ''}>↑</button>
+            <button class="iep-btn iep-down" data-seg-id="${seg.segId}" ${isLast  ? 'disabled' : ''}>↓</button>
+          </div>
+          <button class="iep-btn iep-del" data-seg-id="${seg.segId}" title="Remove">×</button>
+        </div>`;
+    }
+  });
+
+  // Gap / overage indicator
+  if (gap > 0) {
+    const gapStart   = segDates.length > 0 ? segDates[segDates.length - 1].end : iepDepartDate;
+    const gapEndIncl = new Date(parseDate(iepReturnDate).getTime() - 86400000).toISOString().slice(0, 10);
+    const gapLabel   = gap === 1 ? fmt(gapStart) : `${fmt(gapStart)} – ${fmt(gapEndIncl)}`;
+    html += `
+      <div class="iep-row iep-row-gap">
+        <span class="iep-gap-icon">░</span>
+        <span class="iep-gap-label">${gap} unallocated night${gap !== 1 ? 's' : ''} · ${gapLabel}</span>
+      </div>`;
+  } else if (gap < 0) {
+    html += `
+      <div class="iep-row iep-row-over">
+        <span class="iep-over-icon">⚠️</span>
+        <span class="iep-over-label">${Math.abs(gap)} night${Math.abs(gap) !== 1 ? 's' : ''} over trip window</span>
+      </div>`;
+  }
+
+  html += `
+    <div class="iep-row iep-row-bookend">
+      <span class="iep-row-icon">🏠</span>
+      <span class="iep-row-name">Return</span>
+      <span class="iep-row-date">${fmt(iepReturnDate)}</span>
+    </div>
+    <button class="iep-add-place" id="iep-add-place">${ICONS.plus} Add Place</button>`;
+
+  el.innerHTML = html;
+
+  // ── Event listeners ───────────────────────────────────
+  el.querySelectorAll('.iep-minus').forEach(btn => btn.addEventListener('click', () => {
+    const seg = iepSegments.find(s => s.segId === btn.dataset.segId);
+    if (seg && seg.nights > 1) { seg.nights--; if (iepAutoBalance) iepRebalance(); renderIEP(); }
+  }));
+
+  el.querySelectorAll('.iep-plus').forEach(btn => btn.addEventListener('click', () => {
+    const seg = iepSegments.find(s => s.segId === btn.dataset.segId);
+    if (seg) { seg.nights++; if (iepAutoBalance) iepRebalance(); renderIEP(); }
+  }));
+
+  el.querySelectorAll('.iep-up').forEach(btn => btn.addEventListener('click', () => {
+    iepPendingDel = null;
+    const idx = iepSegments.findIndex(s => s.segId === btn.dataset.segId);
+    if (idx > 0) {
+      [iepSegments[idx - 1], iepSegments[idx]] = [iepSegments[idx], iepSegments[idx - 1]];
+      renderIEP();
+    }
+  }));
+
+  el.querySelectorAll('.iep-down').forEach(btn => btn.addEventListener('click', () => {
+    iepPendingDel = null;
+    const idx = iepSegments.findIndex(s => s.segId === btn.dataset.segId);
+    if (idx < iepSegments.length - 1) {
+      [iepSegments[idx], iepSegments[idx + 1]] = [iepSegments[idx + 1], iepSegments[idx]];
+      renderIEP();
+    }
+  }));
+
+  el.querySelectorAll('.iep-del').forEach(btn => btn.addEventListener('click', () => {
+    iepPendingDel = iepPendingDel === btn.dataset.segId ? null : btn.dataset.segId;
+    renderIEP();
+  }));
+
+  el.querySelectorAll('.iep-confirm-remove').forEach(btn => btn.addEventListener('click', () => {
+    const segId = btn.dataset.segId;
+    const idx   = iepSegments.findIndex(s => s.segId === segId);
+    if (idx < 0) return;
+    const removed = iepSegments[idx];
+    const place   = trip.places[removed.key];
+    iepDelStack.push({ seg: { ...removed }, index: idx });
+    iepSegments.splice(idx, 1);
+    iepPendingDel = null;
+    if (iepAutoBalance && iepSegments.length) iepRebalance();
+    renderIEP();
+    showUndoToast(`Removed ${place?.name || removed.key}`, () => {
+      const entry = iepDelStack.find(e => e.seg.segId === segId);
+      if (!entry) return;
+      iepDelStack.splice(iepDelStack.indexOf(entry), 1);
+      iepSegments.splice(Math.min(entry.index, iepSegments.length), 0, entry.seg);
+      renderIEP();
+    });
+  }));
+
+  el.querySelectorAll('.iep-confirm-keep').forEach(btn => btn.addEventListener('click', () => {
+    iepPendingDel = null;
+    renderIEP();
+  }));
+
+  el.querySelector('#iep-add-place')?.addEventListener('click', () => {
+    iepAddingPlace = true;
+    openAddPlaceModal();
+  });
+}
+
+function renderIEPFooter() {
+  const el = $('#iep-footer');
+  if (!el) return;
+
+  const gap          = iepGapNights();
+  const applyEnabled = gap === 0 || iepAutoBalance;
+
+  el.innerHTML = `
+    <label class="iep-autobalance">
+      <input type="checkbox" id="iep-ab-toggle" ${iepAutoBalance ? 'checked' : ''}>
+      <span>Auto-balance last place</span>
+    </label>
+    <div class="iep-footer-actions">
+      <button class="btn btn-outline btn-sm" id="iep-cancel">Cancel</button>
+      <button class="btn btn-primary btn-sm" id="iep-apply" ${!applyEnabled ? 'disabled' : ''}>Apply ▶</button>
+    </div>
+  `;
+
+  el.querySelector('#iep-ab-toggle').addEventListener('change', e => {
+    iepAutoBalance = e.target.checked;
+    if (iepAutoBalance) iepRebalance();
+    renderIEP();
+  });
+
+  el.querySelector('#iep-cancel').addEventListener('click', closeIEP);
+
+  el.querySelector('#iep-apply').addEventListener('click', () => {
+    if (!applyEnabled) return;
+    applyIEPChanges();
+    closeIEP();
+    renderPlaces();
+    renderRouteMap();
+    renderFilterBar();
+    renderDayList('all');
+    renderBookings();
+    showToast('Itinerary updated');
+  });
+}
+
+// ===================================================================
 
 function filterByPlace(placeKey) {
   // Set filter pill active
@@ -1654,10 +1768,20 @@ function initAddPlaceModal() {
       name, color, bg: '#f5f0e8', emoji: '📍', img: '', lat, lng,
     };
 
-    // Add to route
-    trip.route.push({ city: name, dates, nights, key });
+    // If opened from within the IEP, add as a new segment there
+    if (iepAddingPlace) {
+      iepAddingPlace = false;
+      saveTrip(); // persist the new place definition
+      closeAddPlaceModal();
+      iepSegments.push({ segId: generateId(), key, nights });
+      if (iepAutoBalance) iepRebalance();
+      renderIEP();
+      showToast(`${name} added`);
+      return;
+    }
 
-    // Save and re-render
+    // Normal flow: add to route
+    trip.route.push({ city: name, dates, nights, key });
     saveTrip();
     closeAddPlaceModal();
     renderPlaces();
@@ -3270,9 +3394,14 @@ async function init() {
     panel.querySelector('.day-panel-backdrop').addEventListener('click', closeDayPanel);
   }
 
+  // IEP close handlers
+  $('#iep-backdrop')?.addEventListener('click', closeIEP);
+  $('#iep-close')?.addEventListener('click', closeIEP);
+
   // Escape key for any open panel
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if ($('#iep-panel')?.classList.contains('open')) { closeIEP(); return; }
     const bp = $('#booking-panel');
     if (bp?.classList.contains('open')) { bp.classList.remove('open'); return; }
     if (panel?.classList.contains('open')) closeDayPanel();

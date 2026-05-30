@@ -2103,6 +2103,13 @@ select {
   background: #2c2826;
 }
 
+.btn-primary:disabled,
+.btn-primary[disabled] {
+  opacity: 0.38;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .btn-outline {
   background: transparent;
   border: 1px solid var(--border);
@@ -3075,7 +3082,7 @@ a:hover .maps-link-icon { opacity: .7; }
   color: #fffdf8;
   font-size: 0.88rem;
   font-weight: 600;
-  z-index: 400;
+  z-index: 620;
   opacity: 0;
   transition: all 300ms ease;
   pointer-events: none;
@@ -3933,6 +3940,7 @@ a:hover .maps-link-icon { opacity: .7; }
   display: flex;
   align-items: center;
   gap: 12px;
+  pointer-events: auto;
 }
 
 .toast-undo-btn {
@@ -4281,186 +4289,395 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
 
 
 /* ================================================
-   PLACES EDIT MODE
+   PLACES EDIT STRIP  (below map, above city cards)
    ================================================ */
 
-.places-edit-actions {
+.places-edit-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0 14px;
+  gap: 12px;
+}
+
+.pes-summary {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+/* Dark filled button */
+.btn-dark {
+  background: var(--ink, #1c1917);
+  color: #fff;
+  border: 1.5px solid var(--ink, #1c1917);
+}
+.btn-dark:hover {
+  background: #2d2b28;
+  border-color: #2d2b28;
+  color: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  .btn-dark {
+    background: var(--bg-card);
+    color: var(--ink);
+    border-color: var(--border);
+  }
+  .btn-dark:hover {
+    background: var(--bg-section);
+    color: var(--ink);
+  }
+}
+
+/* ================================================
+   IEP — ITINERARY EDIT PANEL
+   ================================================ */
+
+.iep-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 515;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.iep-panel.open {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.iep-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28,25,23,.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.iep-content {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: min(480px, 94vw);
+  background: var(--bg);
+  box-shadow: var(--shadow-lg);
+  transform: translateX(100%);
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.iep-panel.open .iep-content {
+  transform: translateX(0);
+}
+
+/* Header */
+.iep-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.iep-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-family: var(--font-serif);
+}
+.iep-close {
+  width: 32px; height: 32px;
+  border: none; background: transparent;
+  color: var(--ink-muted); font-size: 1.4rem;
+  cursor: pointer; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.iep-close:hover { background: var(--bg-section); color: var(--ink); }
+
+/* Dates strip */
+.iep-dates-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--bg-section);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.iep-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.iep-date-label {
+  font-size: 0.63rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+.iep-date-input {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  padding: 5px 10px;
+  width: 72px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color var(--transition);
+}
+.iep-date-input:hover,
+.iep-date-input:focus { border-color: var(--ink-muted); outline: none; }
+/* flatpickr hides original, shows alt — keep only alt visible */
+.iep-date-field input[type="hidden"] { display: none; }
+
+.iep-dates-sep {
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  padding-bottom: 7px;
+}
+
+.iep-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-left: auto;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.iep-status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.iep-status-ok  { color: #16a34a; background: #dcfce7; }
+.iep-status-ok  .iep-status-dot { background: #16a34a; }
+.iep-status-warn { color: #d97706; background: #fef3c7; }
+.iep-status-warn .iep-status-dot { background: #d97706; }
+.iep-status-err  { color: #dc2626; background: #fee2e2; }
+.iep-status-err  .iep-status-dot { background: #dc2626; }
+@media (prefers-color-scheme: dark) {
+  .iep-status-ok   { background: rgba(22,163,74,.18);  }
+  .iep-status-warn { background: rgba(217,119,6,.18); }
+  .iep-status-err  { background: rgba(220,38,38,.18); }
+}
+
+/* Body */
+.iep-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+/* Rows */
+.iep-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-shrink: 0;
-  padding-top: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  padding: 10px 20px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--border);
+}
+.iep-row:last-of-type { border-bottom: none; }
+
+/* Bookend rows */
+.iep-row-bookend {
+  background: var(--bg-section);
+  opacity: 0.65;
+}
+.iep-row-bookend .iep-row-icon { font-size: 1rem; flex-shrink: 0; }
+.iep-row-bookend .iep-row-name {
+  font-size: 0.8rem; font-weight: 600;
+  color: var(--ink-muted); flex: 1;
+}
+.iep-row-bookend .iep-row-date {
+  font-size: 0.72rem; color: var(--ink-faint); margin-left: auto;
 }
 
-.places-total-days {
-  font-size: 0.78rem;
-  color: var(--ink-muted);
-  white-space: nowrap;
+/* Segment rows */
+.iep-row-segment .iep-row-icon {
+  font-size: 1.1rem; flex-shrink: 0; width: 26px; text-align: center;
+}
+.iep-row-info { flex: 1; min-width: 0; }
+.iep-row-name {
+  display: block; font-size: 0.875rem; font-weight: 600;
+  color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.iep-row-date {
+  display: block; font-size: 0.68rem; color: var(--ink-muted); margin-top: 2px;
 }
 
-/* Edit bar at the bottom of each card */
-.city-card-edit-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-section, var(--bg));
+/* Night stepper */
+.iep-row-stepper {
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+}
+.iep-nights {
+  font-size: 0.9rem; font-weight: 700; color: var(--ink);
+  min-width: 22px; text-align: center;
+}
+.iep-nights-label {
+  font-size: 0.6rem; font-weight: 500; color: var(--ink-faint); margin-left: 1px;
 }
 
-/* Cards in edit mode: no hover lift, cursor default */
-.city-card.city-card-editing {
-  cursor: default;
-}
-.city-card.city-card-editing:hover {
-  transform: none;
-  box-shadow: none;
-  border-color: var(--border);
-}
-.city-card.city-card-editing:hover::after {
-  opacity: 0;
-}
-.city-card.city-card-editing:hover .city-card-img img {
-  transform: none;
-}
+/* Reorder + shared btn */
+.iep-row-order { display: flex; gap: 2px; flex-shrink: 0; }
 
-/* Small control buttons inside edit bar */
-.cce-btn {
-  width: 26px;
-  height: 26px;
+.iep-btn {
+  width: 28px; height: 28px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--ink-muted);
-  font-size: 0.9rem;
-  line-height: 1;
+  font-size: 0.85rem; line-height: 1;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   transition: background var(--transition), color var(--transition), border-color var(--transition);
   font-family: var(--font-sans);
 }
-.cce-btn:hover:not(:disabled) {
-  background: var(--bg-hover, #f0f0f0);
+.iep-btn:hover:not(:disabled) {
+  background: var(--bg-section);
   color: var(--ink);
-  border-color: var(--border-hover, rgba(0,0,0,.2));
+  border-color: rgba(0,0,0,.18);
 }
-.cce-btn:disabled {
-  opacity: 0.28;
-  cursor: not-allowed;
-}
+.iep-btn:disabled { opacity: 0.28; cursor: not-allowed; }
 
-.city-card-reorder {
-  display: flex;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.city-card-nights {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  justify-content: center;
-  min-width: 0;
-}
-
-.cce-nights-count {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--ink);
-  min-width: 16px;
-  text-align: center;
-}
-
-.cce-nights-label {
-  font-size: 0.68rem;
-  color: var(--ink-muted);
-}
-
-.cce-remove {
-  background: none;
-  border: none;
+.iep-del {
+  border-color: transparent;
+  background: transparent;
   color: var(--ink-faint);
-  cursor: pointer;
-  font-size: 1.05rem;
-  padding: 3px 5px;
-  border-radius: 4px;
-  line-height: 1;
-  transition: color var(--transition);
-  flex-shrink: 0;
-  margin-left: auto;
-  font-family: var(--font-sans);
+  font-size: 1rem;
 }
-.cce-remove:hover { color: #ef4444; }
+.iep-del:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: #ef4444;
+}
 
-/* ── Remove confirmation state ─────────────────────────── */
+/* Gap & overage rows */
+.iep-row-gap {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--bg-section),
+    var(--bg-section) 4px,
+    var(--bg) 4px,
+    var(--bg) 10px
+  );
+  min-height: 40px;
+}
+.iep-gap-icon { font-size: 0.75rem; color: var(--ink-faint); flex-shrink: 0; }
+.iep-gap-label { font-size: 0.74rem; color: var(--ink-muted); font-style: italic; }
 
-.city-card-remove-confirm {
+.iep-row-over { background: #fef2f2; min-height: 40px; }
+@media (prefers-color-scheme: dark) { .iep-row-over { background: rgba(239,68,68,.1); } }
+.iep-over-icon { flex-shrink: 0; }
+.iep-over-label { font-size: 0.74rem; color: #dc2626; font-weight: 600; }
+
+/* Delete confirmation row */
+.iep-row-pending {
   background: #fef2f2;
-  border-top-color: #fecaca;
-  gap: 8px;
-  flex-wrap: wrap;
+  border-bottom-color: #fecaca;
+  align-items: flex-start;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
-
-/* dark mode */
 @media (prefers-color-scheme: dark) {
-  .city-card-remove-confirm {
-    background: rgba(239,68,68,.12);
-    border-top-color: rgba(239,68,68,.25);
+  .iep-row-pending {
+    background: rgba(239,68,68,.1);
+    border-bottom-color: rgba(239,68,68,.25);
   }
 }
-
-.cce-warn {
-  font-size: 0.72rem;
-  color: #b91c1c;
-  flex: 1;
-  min-width: 0;
-  line-height: 1.35;
+.iep-row-confirm { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.iep-confirm-msg {
+  font-size: 0.78rem; color: #b91c1c; line-height: 1.4; font-weight: 500;
 }
-
-@media (prefers-color-scheme: dark) {
-  .cce-warn { color: #fca5a5; }
-}
-
-.cce-confirm-remove,
-.cce-confirm-keep {
-  padding: 4px 10px;
+@media (prefers-color-scheme: dark) { .iep-confirm-msg { color: #fca5a5; } }
+.iep-confirm-btns { display: flex; gap: 6px; }
+.iep-confirm-remove,
+.iep-confirm-keep {
+  padding: 5px 14px;
   border-radius: 6px;
-  border: 1px solid;
+  border: 1.5px solid;
   font-family: var(--font-sans);
-  font-size: 0.72rem;
+  font-size: 0.73rem;
   font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
   transition: background var(--transition), color var(--transition);
 }
-
-.cce-confirm-remove {
-  background: #ef4444;
-  border-color: #ef4444;
-  color: #fff;
+.iep-confirm-remove {
+  background: #ef4444; border-color: #ef4444; color: #fff;
 }
-.cce-confirm-remove:hover {
-  background: #dc2626;
-  border-color: #dc2626;
-}
-
-.cce-confirm-keep {
+.iep-confirm-remove:hover { background: #dc2626; border-color: #dc2626; }
+.iep-confirm-keep {
   background: transparent;
-  border-color: var(--border-hover, rgba(0,0,0,.2));
+  border-color: rgba(0,0,0,.2);
   color: var(--ink-muted);
 }
-.cce-confirm-keep:hover {
-  background: var(--bg-hover, #f0f0f0);
+.iep-confirm-keep:hover { background: var(--bg-section); color: var(--ink); }
+
+/* Add Place button */
+.iep-add-place {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: calc(100% - 40px);
+  margin: 14px 20px 6px;
+  padding: 10px;
+  border: 1.5px dashed var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.iep-add-place svg { width: 14px; height: 14px; flex-shrink: 0; }
+.iep-add-place:hover {
+  background: var(--bg-section);
   color: var(--ink);
+  border-color: var(--ink-muted);
 }
 
-/* Dim the card image while pending removal */
+/* Footer */
+.iep-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.iep-autobalance {
+  display: flex; align-items: center; gap: 7px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  user-select: none;
+}
+.iep-autobalance input[type="checkbox"] {
+  width: 14px; height: 14px;
+  cursor: pointer;
+  accent-color: var(--ink);
+}
+.iep-footer-actions { display: flex; gap: 8px; margin-left: auto; }
+
+/* Dim the old card image while pending removal (kept for any future use) */
 .city-card-remove-pending .city-card-img img {
   opacity: 0.45;
 }
