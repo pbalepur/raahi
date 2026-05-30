@@ -4681,3 +4681,35 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
 .city-card-remove-pending .city-card-img img {
   opacity: 0.45;
 }
+
+/* ===================================================================
+   EDIT / VIEW-ONLY MODE
+   =================================================================== */
+
+/* Hide all edit controls when in view-only mode */
+body.is-readonly .places-edit-strip,
+body.is-readonly .bulk-trigger,
+body.is-readonly .import-label,
+body.is-readonly #booking-add-top,
+body.is-readonly .booking-toolbar-actions { display: none !important; }
+
+/* Disable booking card hover/click affordance in view-only mode */
+body.is-readonly .booking-card {
+  cursor: default;
+  pointer-events: none;
+}
+body.is-readonly .booking-card:hover {
+  transform: none;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Edit-mode toggle button */
+.edit-mode-btn.is-active {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Subtle "view only" banner at page top when not in edit mode */
+body.is-readonly .is-trip .sticky-nav::after {
+  display: none; /* placeholder for future banner if needed */
+}

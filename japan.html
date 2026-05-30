@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=24">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body class="is-trip">
@@ -30,6 +30,7 @@
         <button class="snav-link ask-trigger" data-section="ask">Ask</button>
       </div>
       <div class="sticky-actions">
+        <button class="btn btn-outline btn-xs edit-mode-btn" title="Toggle edit mode">🔒 View only</button>
         <button class="btn btn-outline btn-xs export-trigger" title="Export trip data">Export</button>
         <label class="btn btn-outline btn-xs import-label" title="Import trip data">
           Import
@@ -60,6 +61,7 @@
           <a href="#bookings" class="hero-pill">Bookings</a>
           <button class="hero-pill ask-trigger">Ask</button>
           <span class="hero-divider"></span>
+          <button class="hero-pill hero-pill-util edit-mode-btn" title="Toggle edit mode">🔒 View only</button>
           <button class="hero-pill hero-pill-util export-trigger" title="Export trip data">Export</button>
           <label class="hero-pill hero-pill-util import-label" title="Import trip data">
             Import
@@ -295,8 +297,25 @@
     </div>
   </div>
 
+  <!-- Edit PIN Modal -->
+  <div class="bulk-modal" id="edit-pin-modal">
+    <div class="bulk-content" style="max-width:360px">
+      <div class="bulk-header">
+        <h3>Enter edit PIN</h3>
+      </div>
+      <p style="margin:0 0 1rem;color:var(--ink-muted);font-size:.9rem">Enter your PIN to enable editing on this device. It will be remembered until you sign out.</p>
+      <form class="epm-form">
+        <input type="password" class="epm-input" placeholder="PIN or passphrase" autocomplete="current-password" style="width:100%;padding:.6rem .8rem;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--bg-section);color:var(--ink);font-size:1rem;margin-bottom:1rem">
+        <div class="bulk-actions">
+          <button type="submit" class="btn btn-primary">Unlock editing</button>
+          <button type="button" class="btn btn-outline epm-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>

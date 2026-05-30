@@ -144,8 +144,14 @@ export default {
         return json(data, 200, cors);
       }
 
-      // PUT /api/trip/:id/data  (save full trip data)
+      // PUT /api/trip/:id/data  (save full trip data — requires write token if set)
       if (/^\/api\/trip\/[\w-]+\/data$/.test(path) && request.method === 'PUT') {
+        if (env.WRITE_TOKEN) {
+          const auth = request.headers.get('Authorization') || '';
+          if (auth !== `Bearer ${env.WRITE_TOKEN}`) {
+            return json({ error: 'Unauthorized' }, 401, cors);
+          }
+        }
         const tripId = path.split('/')[3];
         const body = await request.json();
         await env.RAAHI_KV.put(`tripdata:${tripId}`, JSON.stringify(body));

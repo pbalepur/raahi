@@ -132,9 +132,10 @@ function getRouteSegmentDays(routeIdx) {
 //  DATA LAYER
 // ===================================================================
 
-const STORE_KEY = 'raahi_v4_trip';
-const EDITS_KEY = 'raahi_v4_edits';
-const TRIP_ID   = 'japan-2026';
+const STORE_KEY      = 'raahi_v4_trip';
+const EDITS_KEY      = 'raahi_v4_edits';
+const TRIP_ID        = 'japan-2026';
+const WRITE_TOKEN_KEY = 'raahi_write_token';
 
 let trip = null;       // The full trip data
 let userEdits = {};    // User overrides per day
@@ -170,12 +171,53 @@ function saveTrip() {
   pushTripToWorker();
 }
 
-// Fire-and-forget push to Cloudflare KV
+// ─── Edit-mode helpers ────────────────────────────────────────────────────────
+
+function getWriteToken() {
+  return localStorage.getItem(WRITE_TOKEN_KEY) || '';
+}
+
+function isEditMode() {
+  return !!getWriteToken();
+}
+
+function applyEditModeClass() {
+  document.body.classList.toggle('is-edit',     isEditMode());
+  document.body.classList.toggle('is-readonly', !isEditMode());
+}
+
+function enterEditMode(token) {
+  localStorage.setItem(WRITE_TOKEN_KEY, token);
+  applyEditModeClass();
+  renderEditModeBtn();
+  showToast('Edit mode on');
+}
+
+function exitEditMode() {
+  localStorage.removeItem(WRITE_TOKEN_KEY);
+  applyEditModeClass();
+  renderEditModeBtn();
+  showToast('View-only mode');
+}
+
+// ─── Remote sync ─────────────────────────────────────────────────────────────
+
+// Fire-and-forget push to Cloudflare KV (no-op in view-only mode)
 function pushTripToWorker() {
+  const token = getWriteToken();
+  if (!token) return;
   fetch(`${WORKER_URL}/api/trip/${TRIP_ID}/data`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
     body: JSON.stringify(trip),
+  }).then(res => {
+    if (res.status === 401 || res.status === 403) {
+      exitEditMode();
+      showToast('Edit access denied — switched to view only');
+    }
   }).catch(() => {});
 }
 
@@ -306,6 +348,44 @@ function moveItemToDay(fromDayIdx, toDayIdx, itemId, isSchedule) {
 //  EXPORT / IMPORT
 // ===================================================================
 
+// ─── Edit-mode toggle button ──────────────────────────────────────────────────
+
+function renderEditModeBtn() {
+  $$('.edit-mode-btn').forEach(btn => {
+    if (isEditMode()) {
+      btn.textContent = '✏️ Editing';
+      btn.title = 'Exit edit mode';
+      btn.classList.add('is-active');
+    } else {
+      btn.textContent = '🔒 View only';
+      btn.title = 'Enter edit mode';
+      btn.classList.remove('is-active');
+    }
+  });
+}
+
+function handleEditModeBtnClick() {
+  if (isEditMode()) {
+    if (confirm('Exit edit mode? You can re-enter with your PIN.')) exitEditMode();
+  } else {
+    openEditPinModal();
+  }
+}
+
+function openEditPinModal() {
+  const modal = $('#edit-pin-modal');
+  if (!modal) return;
+  modal.classList.add('open');
+  const input = modal.querySelector('.epm-input');
+  if (input) { input.value = ''; setTimeout(() => input.focus(), 50); }
+}
+
+function closeEditPinModal() {
+  $('#edit-pin-modal')?.classList.remove('open');
+}
+
+// ─── Export / Import ──────────────────────────────────────────────────────────
+
 function exportTrip() {
   // Merge user edits into a clean copy
   const exportData = JSON.parse(JSON.stringify(trip));
@@ -313,6 +393,9 @@ function exportTrip() {
     day.schedule = getSchedule(idx);
     day.wishlist = getWishlist(idx);
   });
+  // Bundle the write token so importing on a new device preserves edit access
+  const token = getWriteToken();
+  if (token) exportData._writeToken = token;
   const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -340,6 +423,11 @@ function importTrip(file) {
       }
       trip = data;
       userEdits = {};
+      // Restore write token if bundled in export
+      if (data._writeToken) {
+        localStorage.setItem(WRITE_TOKEN_KEY, data._writeToken);
+        delete trip._writeToken;
+      }
       saveTrip();
       saveEdits();
       showToast('Trip imported — refreshing...');
@@ -3212,6 +3300,37 @@ function initNotifications() {
 }
 
 // ===================================================================
+//  EDIT MODE
+// ===================================================================
+
+function initEditMode() {
+  // Wire toggle buttons (sticky nav + hero)
+  $$('.edit-mode-btn').forEach(btn => {
+    btn.addEventListener('click', handleEditModeBtnClick);
+  });
+  renderEditModeBtn();
+
+  // PIN modal submit
+  const modal   = $('#edit-pin-modal');
+  const form    = modal?.querySelector('.epm-form');
+  const input   = modal?.querySelector('.epm-input');
+  const cancelBtn = modal?.querySelector('.epm-cancel');
+
+  form?.addEventListener('submit', e => {
+    e.preventDefault();
+    const val = input?.value.trim();
+    if (!val) return;
+    closeEditPinModal();
+    enterEditMode(val);
+    // Immediately validate by pushing — if wrong, worker returns 401 and exitEditMode fires
+    pushTripToWorker();
+  });
+
+  cancelBtn?.addEventListener('click', closeEditPinModal);
+  modal?.addEventListener('click', e => { if (e.target === modal) closeEditPinModal(); });
+}
+
+// ===================================================================
 //  EXPORT / IMPORT UI
 // ===================================================================
 
@@ -3421,6 +3540,9 @@ async function init() {
     saveLocal();
   }
 
+  // Apply edit / view-only mode
+  applyEditModeClass();
+
   // Render everything
   renderPlaces();
   renderRouteMap();
@@ -3436,6 +3558,7 @@ async function init() {
   initNotifications();
   initExportImport();
   initInbox();
+  initEditMode();
   updateMobileNav();
 
   // Booking add button
