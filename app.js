@@ -1411,49 +1411,26 @@ function renderBookings() {
 //  WORKER / EMAIL INBOX
 // ===================================================================
 
-const WORKER_KEY = 'raahi_worker_config';
-
-function loadWorkerConfig() {
-  try { return JSON.parse(localStorage.getItem(WORKER_KEY) || 'null'); }
-  catch { return null; }
-}
-
-function saveWorkerConfig(cfg) {
-  localStorage.setItem(WORKER_KEY, JSON.stringify(cfg));
-}
+const WORKER_URL = 'https://raahi-worker.prashant-balepur.workers.dev';
 
 async function fetchPending() {
-  const cfg = loadWorkerConfig();
-  if (!cfg?.url || !cfg?.secret) return [];
   try {
-    const res = await fetch(`${cfg.url}/api/pending`, {
-      headers: { 'Authorization': `Bearer ${cfg.secret}` }
-    });
+    const res = await fetch(`${WORKER_URL}/api/pending`);
     if (!res.ok) return [];
     return await res.json();
   } catch { return []; }
 }
 
 async function acceptPending(id) {
-  const cfg = loadWorkerConfig();
-  if (!cfg?.url || !cfg?.secret) return false;
   try {
-    const res = await fetch(`${cfg.url}/api/pending/${id}/accept`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${cfg.secret}` }
-    });
+    const res = await fetch(`${WORKER_URL}/api/pending/${id}/accept`, { method: 'POST' });
     return res.ok;
   } catch { return false; }
 }
 
 async function rejectPending(id) {
-  const cfg = loadWorkerConfig();
-  if (!cfg?.url || !cfg?.secret) return false;
   try {
-    const res = await fetch(`${cfg.url}/api/pending/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${cfg.secret}` }
-    });
+    const res = await fetch(`${WORKER_URL}/api/pending/${id}`, { method: 'DELETE' });
     return res.ok;
   } catch { return false; }
 }
@@ -1542,21 +1519,7 @@ function renderInbox(items) {
   if (!container) return;
 
   if (!items.length) {
-    const cfg = loadWorkerConfig();
-    if (!cfg?.url) {
-      container.innerHTML = `
-        <div class="inbox-empty inbox-configure">
-          <span class="inbox-empty-icon">📬</span>
-          <div class="inbox-empty-body">
-            <strong>Connect your inbox</strong>
-            <p>Forward booking confirmations to <strong>bookings@heyraahi.com</strong> and they'll appear here automatically.</p>
-            <button class="btn btn-outline btn-sm" id="inbox-configure-btn">Configure</button>
-          </div>
-        </div>`;
-      $('#inbox-configure-btn')?.addEventListener('click', openWorkerSettings);
-    } else {
-      container.innerHTML = '';
-    }
+    container.innerHTML = '';
     return;
   }
 
@@ -1632,40 +1595,9 @@ function renderInbox(items) {
 }
 
 async function initInbox() {
-  const cfg = loadWorkerConfig();
-  if (!cfg?.url || !cfg?.secret) {
-    renderInbox([]);
-    return;
-  }
   pendingBookings = await fetchPending();
   renderInbox(pendingBookings);
   updateInboxBadge(pendingBookings.length);
-}
-
-function openWorkerSettings() {
-  const modal = $('#worker-settings-modal');
-  if (!modal) return;
-  const cfg = loadWorkerConfig() || {};
-  modal.querySelector('[name="worker-url"]').value    = cfg.url    || 'https://raahi-worker.prashant-balepur.workers.dev';
-  modal.querySelector('[name="worker-secret"]').value = cfg.secret || '';
-  modal.classList.add('open');
-}
-
-function initWorkerSettings() {
-  const modal = $('#worker-settings-modal');
-  if (!modal) return;
-  modal.querySelectorAll('.wsm-close').forEach(btn =>
-    btn.addEventListener('click', () => modal.classList.remove('open'))
-  );
-  modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('open'); });
-  modal.querySelector('#worker-settings-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const url    = modal.querySelector('[name="worker-url"]').value.trim().replace(/\/$/, '');
-    const secret = modal.querySelector('[name="worker-secret"]').value.trim();
-    saveWorkerConfig({ url, secret });
-    modal.classList.remove('open');
-    await initInbox();
-  });
 }
 
 // ===================================================================
@@ -2731,17 +2663,12 @@ async function init() {
   initAsk();
   initNotifications();
   initExportImport();
-  initWorkerSettings();
   initInbox();
   updateMobileNav();
 
   // Booking add button
   const addTopBtn = $('#booking-add-top');
   if (addTopBtn) addTopBtn.addEventListener('click', () => openNewBookingForm());
-
-  // Inbox settings button
-  const inboxSettingsBtn = $('#inbox-settings-btn');
-  if (inboxSettingsBtn) inboxSettingsBtn.addEventListener('click', openWorkerSettings);
 
   // Panel close handlers
   const panel = $('#day-panel');

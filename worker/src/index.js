@@ -56,6 +56,9 @@ export default {
 
       console.log(`Stored pending booking [${id}]: ${booking.type} — ${booking.name}`);
 
+      // Send confirmation reply to sender
+      try { await sendReply(message, booking); } catch(e) { console.warn('Reply failed:', e.message); }
+
     } catch (err) {
       console.error('email() handler error:', err);
     }
@@ -75,12 +78,6 @@ export default {
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
-    }
-
-    // Bearer auth
-    const auth = request.headers.get('Authorization');
-    if (!env.API_SECRET || auth !== `Bearer ${env.API_SECRET}`) {
-      return json({ error: 'Unauthorized' }, 401, cors);
     }
 
     try {
@@ -275,6 +272,68 @@ ${emailText.slice(0, 5000)}`;
     console.error('Failed to parse Claude JSON:', text);
     return null;
   }
+}
+
+// ─── Reply email ─────────────────────────────────────────────────────────────
+
+import { EmailMessage } from 'cloudflare:email';
+
+async function sendReply(inbound, booking) {
+  const typeLabel = {
+    hotel: 'Hotel', flight: 'Flight', train: 'Train / Rail',
+    restaurant: 'Restaurant', activity: 'Activity', other: 'Booking',
+  }[booking.type] || 'Booking';
+
+  // Build date line
+  let dateLine = '';
+  if (booking.type === 'flight') {
+    const ob = booking.outbound || {};
+    dateLine = ob.departDate
+      ? `${ob.departAirport || '?'} → ${ob.arriveAirport || '?'}  on ${ob.departDate}${ob.departTime ? ' at ' + ob.departTime : ''}`
+      : '';
+  } else if (booking.type === 'train') {
+    dateLine = booking.transitDate
+      ? `${booking.transitFrom || ''} → ${booking.transitTo || ''}  on ${booking.transitDate}${booking.transitTime ? ' at ' + booking.transitTime : ''}`
+      : '';
+  } else {
+    dateLine = booking.checkIn
+      ? `${booking.checkIn}${booking.checkOut ? ' → ' + booking.checkOut : ''}`
+      : '';
+  }
+
+  const confLine   = booking.confirmationNumber ? `Confirmation: ${booking.confirmationNumber}` : '';
+  const costLine   = booking.cost ? `Cost: ${booking.currency || ''} ${booking.cost}` : '';
+  const notesLine  = booking.notes ? `Notes: ${booking.notes}` : '';
+  const confidence = booking.confidence === 'low' ? '\n⚠️  Low confidence — please double-check the details in Raahi.' : '';
+
+  const body = [
+    `Raahi received your forwarded confirmation and parsed the following:`,
+    ``,
+    `Type:  ${typeLabel}`,
+    `Name:  ${booking.name || '—'}`,
+    dateLine   ? `Dates: ${dateLine}`   : '',
+    confLine,
+    costLine,
+    notesLine,
+    ``,
+    `Open Raahi to review and add it to your trip.`,
+    confidence,
+    ``,
+    `— Raahi`,
+  ].filter(l => l !== undefined && !(l === '' && false)).join('\n').replace(/\n{3,}/g, '\n\n');
+
+  const raw = [
+    `From: Raahi <bookings@heyraahi.com>`,
+    `To: ${inbound.from}`,
+    `Subject: ✓ Parsed: ${booking.name || typeLabel}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/plain; charset=UTF-8`,
+    ``,
+    body,
+  ].join('\r\n');
+
+  const reply = new EmailMessage('bookings@heyraahi.com', inbound.from, raw);
+  await inbound.reply(reply);
 }
 
 // ─── KV helpers ───────────────────────────────────────────────────────────────

@@ -107,11 +107,9 @@
         <div class="booking-toolbar" id="booking-toolbar">
           <div class="booking-filters" id="booking-filters" role="group" aria-label="Filter bookings"></div>
           <div class="booking-toolbar-actions">
-            <button class="btn btn-outline btn-sm" id="inbox-settings-btn" title="Connect email inbox">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/></svg>
-              Inbox
-              <span id="inbox-badge" class="inbox-nav-badge" style="display:none">0</span>
-            </button>
+            <span class="inbox-toolbar-label">
+              📬 <span id="inbox-badge" class="inbox-nav-badge" style="display:none">0</span>
+            </span>
             <button class="btn btn-primary btn-sm booking-add-top-btn" id="booking-add-top">+ Add</button>
           </div>
         </div>
@@ -282,32 +280,7 @@
     </div>
   </div>
 
-  <!-- Worker / Inbox Settings Modal -->
-  <div class="bulk-modal" id="worker-settings-modal">
-    <div class="bulk-content" style="max-width:440px">
-      <div class="bulk-header">
-        <h3>Email Inbox</h3>
-        <button class="bulk-close-btn wsm-close">&times;</button>
-      </div>
-      <p class="bulk-desc">Forward booking confirmations to <strong>bookings@heyraahi.com</strong> and they'll appear here for review.</p>
-      <form id="worker-settings-form">
-        <div class="apm-field">
-          <label>Worker URL</label>
-          <input type="url" name="worker-url" placeholder="https://raahi-worker.*.workers.dev" autocomplete="off">
-        </div>
-        <div class="apm-field">
-          <label>API Secret</label>
-          <input type="password" name="worker-secret" placeholder="Your API_SECRET value" autocomplete="off">
-        </div>
-        <div class="bulk-actions">
-          <button type="submit" class="btn btn-primary">Save &amp; Connect</button>
-          <button type="button" class="btn btn-outline wsm-close">Cancel</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <script src="app.js?v=16"></script>
 </body>
