@@ -3371,21 +3371,34 @@ async function initNotifications() {
   }
 
   if (!pushSupported) {
-    notifyBtn.disabled = true;
+    notifyBtn.style.display = 'none';
     if (notifyStatus) notifyStatus.textContent = 'Push notifications are not supported by this browser.';
     return;
   }
 
+  // Already blocked from a previous session — surface guidance immediately
+  if (Notification.permission === 'denied') {
+    notifyBtn.textContent = '🔕 Blocked';
+    if (notifyStatus) notifyStatus.textContent = 'Enable notifications for this site in your browser settings.';
+    return;
+  }
+
   notifyBtn.addEventListener('click', async () => {
+    // If already blocked, guide the user to browser settings instead of re-requesting
+    if (Notification.permission === 'denied') {
+      if (notifyStatus) notifyStatus.textContent = 'Notifications are blocked — enable them in your browser settings for this site, then try again.';
+      return;
+    }
+
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') {
-      if (notifyStatus) notifyStatus.textContent = 'Notifications were not enabled.';
+      if (notifyStatus) notifyStatus.textContent = 'Permission not granted — tap Allow when the browser asks.';
       return;
     }
     const ok = await activatePush();
     if (ok) {
       if (notifyStatus) notifyStatus.textContent = "You'll get a notification whenever a new booking arrives.";
-      notifyBtn.textContent = 'Enabled';
+      notifyBtn.textContent = '🔔 Enabled';
       notifyBtn.disabled = true;
     }
   });
