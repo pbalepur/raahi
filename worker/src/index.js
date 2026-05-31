@@ -57,6 +57,9 @@ export default {
 
       console.log(`Stored pending booking [${id}]: ${booking.type} — ${booking.name}`);
 
+      // Send Web Push notification to subscribed devices
+      ctx.waitUntil(sendPushNotifications(env));
+
       // Send confirmation reply to sender
       try {
         await sendReply(message, booking, env);
@@ -133,6 +136,28 @@ export default {
       if (path === '/api/trips' && request.method === 'POST') {
         const body = await request.json();
         await env.RAAHI_KV.put('trips', JSON.stringify(body));
+        return json({ ok: true }, 200, cors);
+      }
+
+      // POST /api/push/subscribe  (register a push subscription)
+      if (path === '/api/push/subscribe' && request.method === 'POST') {
+        const body = await request.json();
+        // Body is the PushSubscription object directly: { endpoint, keys: { p256dh, auth } }
+        if (!body?.endpoint) return json({ error: 'Invalid subscription' }, 400, cors);
+        const subs = await getPushSubscriptions(env);
+        if (!subs.some(s => s.endpoint === body.endpoint)) {
+          subs.push(body);
+          await env.RAAHI_KV.put('pushsubs', JSON.stringify(subs));
+        }
+        return json({ ok: true }, 200, cors);
+      }
+
+      // DELETE /api/push/subscribe  (unregister a push subscription)
+      if (path === '/api/push/subscribe' && request.method === 'DELETE') {
+        const body = await request.json();
+        const subs = await getPushSubscriptions(env);
+        const filtered = subs.filter(s => s.endpoint !== body?.endpoint);
+        await env.RAAHI_KV.put('pushsubs', JSON.stringify(filtered));
         return json({ ok: true }, 200, cors);
       }
 
@@ -375,6 +400,87 @@ async function sendReply(inbound, booking, env) {
   // Use send_email binding (avoids dependency on Message-ID in forwarded emails)
   const reply = new EmailMessage('bookings@heyraahi.com', inbound.from, raw);
   await env.SEND_EMAIL.send(reply);
+}
+
+// ─── Web Push ─────────────────────────────────────────────────────────────────
+
+async function getPushSubscriptions(env) {
+  return (await env.RAAHI_KV.get('pushsubs', 'json')) || [];
+}
+
+async function sendPushNotifications(env) {
+  if (!env.VAPID_PRIVATE_KEY_JWK || !env.VAPID_PUBLIC_KEY) return;
+  const subs = await getPushSubscriptions(env);
+  if (!subs.length) return;
+
+  const results = await Promise.allSettled(subs.map(sub => sendPushToSub(sub, env)));
+
+  // Remove expired/gone subscriptions (410 = gone, 404 = not found)
+  const active = subs.filter((_, i) => results[i].value !== false);
+  if (active.length !== subs.length) {
+    await env.RAAHI_KV.put('pushsubs', JSON.stringify(active));
+    console.log(`Removed ${subs.length - active.length} expired push subscription(s)`);
+  }
+}
+
+async function sendPushToSub(subscription, env) {
+  try {
+    const jwt = await buildVapidJwt(subscription.endpoint, env);
+    const res = await fetch(subscription.endpoint, {
+      method:  'POST',
+      headers: {
+        'Authorization': `vapid t=${jwt},k=${env.VAPID_PUBLIC_KEY}`,
+        'TTL':            '86400',
+        'Content-Length': '0',
+      },
+    });
+    if (res.status === 410 || res.status === 404) return false; // expired
+    if (!res.ok) console.warn('Push failed:', res.status, subscription.endpoint);
+    return true;
+  } catch (e) {
+    console.error('Push send error:', e.message);
+    return true; // network error — keep subscription
+  }
+}
+
+async function buildVapidJwt(endpoint, env) {
+  const { protocol, hostname } = new URL(endpoint);
+  const audience = `${protocol}//${hostname}`;
+  const now      = Math.floor(Date.now() / 1000);
+
+  const header  = toBase64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
+  const payload = toBase64url(JSON.stringify({
+    aud: audience,
+    exp: now + 43200,   // 12 hours
+    sub: env.VAPID_SUBJECT || 'mailto:bookings@heyraahi.com',
+  }));
+  const unsigned = `${header}.${payload}`;
+
+  const key = await crypto.subtle.importKey(
+    'jwk',
+    JSON.parse(env.VAPID_PRIVATE_KEY_JWK),
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+
+  const sigBuf = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    key,
+    new TextEncoder().encode(unsigned)
+  );
+
+  return `${unsigned}.${bufToBase64url(new Uint8Array(sigBuf))}`;
+}
+
+function toBase64url(str) {
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function bufToBase64url(buf) {
+  let binary = '';
+  for (const b of buf) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 // ─── KV helpers ───────────────────────────────────────────────────────────────

@@ -2185,7 +2185,50 @@ function renderBookings() {
 //  WORKER / EMAIL INBOX
 // ===================================================================
 
-const WORKER_URL = 'https://raahi-worker.prashant-balepur.workers.dev';
+const WORKER_URL      = 'https://raahi-worker.prashant-balepur.workers.dev';
+const VAPID_PUBLIC_KEY = 'BGwEX2T12X2xkmVvfoAs7DT8VLA2xTIC0jYO7pyKIHDmC3dAtEpeD8sVlIfJ1v-4AwplAfvBBPO2NoemRhIajIw';
+
+// ─── Push / Service-worker helpers ───────────────────────────────────────────
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    return await navigator.serviceWorker.register('/raahi/sw.js', { scope: '/raahi/' });
+  } catch (err) {
+    console.warn('SW registration failed:', err);
+    return null;
+  }
+}
+
+async function getOrCreatePushSubscription(reg) {
+  try {
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) return existing;
+    return await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+  } catch (err) {
+    console.warn('Push subscription failed:', err);
+    return null;
+  }
+}
+
+async function sendSubscriptionToWorker(sub) {
+  try {
+    await fetch(`${WORKER_URL}/api/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub.toJSON ? sub.toJSON() : sub),
+    });
+  } catch {}
+}
 
 async function fetchPending() {
   try {
@@ -3295,24 +3338,56 @@ function updateMobileNav() {
 //  NOTIFICATIONS
 // ===================================================================
 
-function initNotifications() {
-  const notifyBtn = $('#notify-btn');
+async function initNotifications() {
+  const notifyBtn    = $('#notify-btn');
   const notifyStatus = $('#notify-status');
   if (!notifyBtn) return;
 
-  notifyBtn.addEventListener('click', async () => {
-    if (!('Notification' in window)) {
-      notifyStatus.textContent = 'This browser does not support notifications.';
-      return;
+  const pushSupported = 'Notification' in window && 'PushManager' in window && 'serviceWorker' in navigator;
+
+  // Helper: complete the subscribe flow once permission is granted
+  async function activatePush() {
+    const reg = await registerServiceWorker();
+    if (!reg) {
+      if (notifyStatus) notifyStatus.textContent = 'Service worker unavailable.';
+      return false;
     }
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') {
-      notifyStatus.textContent = 'Notifications were not enabled.';
-      return;
+    const sub = await getOrCreatePushSubscription(reg);
+    if (!sub) {
+      if (notifyStatus) notifyStatus.textContent = 'Push subscription failed.';
+      return false;
     }
-    notifyStatus.textContent = "Enabled! You'll get reminders for upcoming events.";
+    await sendSubscriptionToWorker(sub);
+    return true;
+  }
+
+  // If already granted, silently re-register subscription (handles reinstalls / new devices)
+  if (pushSupported && Notification.permission === 'granted') {
     notifyBtn.textContent = 'Enabled';
     notifyBtn.disabled = true;
+    if (notifyStatus) notifyStatus.textContent = 'Push notifications are active.';
+    activatePush(); // fire and forget — just keeps subscription fresh
+    return;
+  }
+
+  if (!pushSupported) {
+    notifyBtn.disabled = true;
+    if (notifyStatus) notifyStatus.textContent = 'Push notifications are not supported by this browser.';
+    return;
+  }
+
+  notifyBtn.addEventListener('click', async () => {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      if (notifyStatus) notifyStatus.textContent = 'Notifications were not enabled.';
+      return;
+    }
+    const ok = await activatePush();
+    if (ok) {
+      if (notifyStatus) notifyStatus.textContent = "You'll get a notification whenever a new booking arrives.";
+      notifyBtn.textContent = 'Enabled';
+      notifyBtn.disabled = true;
+    }
   });
 }
 
@@ -3562,6 +3637,9 @@ async function init() {
     trip.meta.version = 5;
     saveLocal();
   }
+
+  // Register service worker early so it's ready before the user hits "Enable notifications"
+  registerServiceWorker(); // fire and forget
 
   // Apply edit / view-only mode
   applyEditModeClass();

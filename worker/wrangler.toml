@@ -10,7 +10,9 @@ id      = "1ff06c7efd19442a85befe3bc726ef29"
 
 # Public variables (non-secret)
 [vars]
-ALLOWED_ORIGIN = "https://pbalepur.github.io"
+ALLOWED_ORIGIN    = "https://pbalepur.github.io"
+VAPID_PUBLIC_KEY  = "BGwEX2T12X2xkmVvfoAs7DT8VLA2xTIC0jYO7pyKIHDmC3dAtEpeD8sVlIfJ1v-4AwplAfvBBPO2NoemRhIajIw"
+VAPID_SUBJECT     = "mailto:bookings@heyraahi.com"
 
 # Outbound email binding (for confirmation replies)
 [[send_email]]
