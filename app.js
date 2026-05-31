@@ -1876,11 +1876,11 @@ function pickUnusedColor() {
 
 async function searchNominatim(q) {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&addressdetails=1&accept-language=en`;
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Raahi/1.0' },
-      signal: AbortSignal.timeout(5000),
-    });
+    // namedetails=1 gives us name:en (English names) — crucial for Japanese places like
+    // Miyajima where the OSM primary name is 宮島 but name:en = "Miyajima"
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&addressdetails=1&namedetails=1&accept-language=en`;
+    // Note: browsers block setting User-Agent — omit it to avoid CORS preflight failures
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     return res.ok ? await res.json() : [];
   } catch { return []; }
 }
@@ -1899,16 +1899,34 @@ async function fetchWikiThumbnail(name) {
 
 function parseNominatimResult(r) {
   const addr = r.address || {};
-  const name = (addr.city || addr.town || addr.village || addr.suburb ||
-                addr.county || addr.state || r.display_name.split(',')[0]).trim();
-  const parts = r.display_name.split(', ');
-  const region = parts.slice(1, -1).join(', ');
+  const nd   = r.namedetails || {};
+
+  // Priority: English name tag → any name tag → address hierarchy → display_name first token
+  // addr.island / addr.locality / addr.place catch things like Miyajima (island) and
+  // Arashiyama (district) that don't have city/town/village address fields
+  const name = (
+    nd['name:en'] ||
+    nd['alt_name:en'] ||
+    nd['name'] ||
+    addr.city || addr.town || addr.village ||
+    addr.island || addr.locality || addr.place ||
+    addr.suburb || addr.quarter ||
+    addr.county ||
+    r.display_name.split(',')[0]
+  ).trim();
+
+  // Region: prefecture / state + country, skipping the name itself
+  const regionParts = [
+    addr.county || addr.district,
+    addr.state  || addr.province,
+  ].filter(Boolean);
+
   return {
     name,
-    region: region || '',
-    lat: parseFloat(r.lat),
-    lng: parseFloat(r.lon),
-    emoji: placeTypeEmoji(r.type, r.class),
+    region: regionParts.join(', '),
+    lat:    parseFloat(r.lat),
+    lng:    parseFloat(r.lon),
+    emoji:  placeTypeEmoji(r.type, r.class),
   };
 }
 
