@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=33">
+  <link rel="stylesheet" href="styles.css?v=34">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body class="is-trip">
@@ -219,45 +219,50 @@
     </div>
   </aside>
 
-  <!-- Add Place Modal -->
+  <!-- Add Place Modal (search-based) -->
   <div class="bulk-modal" id="add-place-modal">
-    <div class="bulk-content" style="max-width:420px">
-      <div class="bulk-header">
+    <div class="apm-card">
+      <header class="apm-header">
         <h3>Add a Place</h3>
-        <button class="bulk-close-btn apm-close">&times;</button>
+        <button class="apm-close-btn" id="apm-close-btn" aria-label="Close">&times;</button>
+      </header>
+
+      <!-- Step 1: Search -->
+      <div class="apm-step" id="apm-step-search">
+        <div class="apm-search-wrap">
+          <input type="text" id="apm-search-input" class="apm-search-input"
+                 placeholder="Search for a place, e.g. Miyajima…" autocomplete="off">
+        </div>
+        <ul id="apm-results" class="apm-results" role="listbox"></ul>
+        <p class="apm-hint">Powered by OpenStreetMap — type at least 2 characters</p>
       </div>
-      <form>
-        <div class="apm-field">
-          <label>Place name</label>
-          <input type="text" name="name" class="apm-name" placeholder="e.g. Osaka, Nara Park..." required>
+
+      <!-- Step 2: Confirm -->
+      <div class="apm-step" id="apm-step-confirm" style="display:none">
+        <div class="apm-preview-row">
+          <div class="apm-emoji-wrap">
+            <button class="apm-emoji-btn" id="apm-emoji-btn" title="Change icon"></button>
+            <div class="apm-emoji-picker" id="apm-emoji-picker" style="display:none"></div>
+          </div>
+          <div class="apm-preview-info">
+            <strong id="apm-preview-name"></strong>
+            <span id="apm-preview-region"></span>
+          </div>
+          <img id="apm-preview-img" class="apm-preview-img" src="" alt="" style="display:none">
         </div>
-        <div class="apm-row">
-          <div class="apm-field">
-            <label>Dates</label>
-            <input type="text" class="apm-date-range" placeholder="Start → End" autocomplete="off" readonly>
-            <input type="hidden" name="startDate" class="apm-start">
-            <input type="hidden" name="endDate" class="apm-end">
-          </div>
-          <div class="apm-field" style="max-width:70px">
-            <label>Nights</label>
-            <input type="number" name="nights" class="apm-nights" value="1" min="0" max="30" readonly style="background:var(--bg-section);color:var(--ink-muted)">
-          </div>
-        </div>
-        <div class="apm-row">
-          <div class="apm-field">
-            <label>Latitude</label>
-            <input type="text" name="lat" placeholder="34.6937">
-          </div>
-          <div class="apm-field">
-            <label>Longitude</label>
-            <input type="text" name="lng" placeholder="135.5023">
+        <div class="apm-nights-field">
+          <label>Nights</label>
+          <div class="apm-stepper">
+            <button class="iep-btn iep-minus" id="apm-nights-minus">−</button>
+            <span class="apm-nights-val" id="apm-nights-val">1</span>
+            <button class="iep-btn iep-plus" id="apm-nights-plus">+</button>
           </div>
         </div>
-        <div class="bulk-actions">
-          <button type="submit" class="btn btn-primary">Add Place</button>
-          <button type="button" class="btn btn-outline apm-close">Cancel</button>
+        <div class="apm-confirm-actions">
+          <button class="btn btn-primary" id="apm-confirm-btn">Add to Journey</button>
+          <button class="btn btn-outline" id="apm-back-btn">← Search again</button>
         </div>
-      </form>
+      </div>
     </div>
   </div>
 
@@ -301,6 +306,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="app.js?v=33"></script>
+  <script src="app.js?v=34"></script>
 </body>
 </html>

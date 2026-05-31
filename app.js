@@ -1830,98 +1830,269 @@ function getActiveFilter() {
 
 function openAddPlaceModal() {
   const modal = $('#add-place-modal');
-  if (modal) {
-    modal.classList.add('open');
-    modal.querySelector('.apm-name').focus();
-  }
+  if (!modal) return;
+  _apmNights   = 1;
+  _apmEmoji    = '📍';
+  _apmSelected = null;
+  _apmImgUrl   = null;
+  _showApmStep('search');
+  modal.classList.add('open');
+  setTimeout(() => $('#apm-search-input')?.focus(), 80);
 }
 
 function closeAddPlaceModal() {
-  const modal = $('#add-place-modal');
-  if (modal) {
-    modal.classList.remove('open');
-    modal.querySelector('form').reset();
+  $('#add-place-modal')?.classList.remove('open');
+}
+
+// ─── Add Place Modal state ────────────────────────────────────────────────────
+let _apmNights   = 1;
+let _apmEmoji    = '📍';
+let _apmSelected = null;
+let _apmImgUrl   = null;
+let _nominatimTimer = null;
+
+const APM_EMOJIS = ['📍','🏙️','🏘️','🏡','🏝️','⛰️','🗻','🌲','🌳','🌸','🏖️','🌊','⛩️','🛕','🏯','🏛️','🎋','🗾','🌺','🏔️'];
+
+function placeTypeEmoji(type, cls) {
+  const map = {
+    city:'🏙️', administrative:'🏙️', town:'🏙️', municipality:'🏙️',
+    suburb:'🏘️', village:'🏡', hamlet:'🏡', neighbourhood:'🏘️',
+    island:'🏝️', islet:'🏝️',
+    mountain_pass:'⛰️', peak:'⛰️', ridge:'⛰️',
+    park:'🌳', national_park:'🌲', forest:'🌲', wood:'🌲',
+    beach:'🏖️', bay:'🌊', lake:'🏞️', river:'🌊', water:'🌊',
+    shrine:'⛩️', temple:'🛕', castle:'🏯', museum:'🏛️',
+    station:'🚅', airport:'✈️',
+    peninsula:'🗾', district:'🏙️', county:'🏙️',
+  };
+  return map[type] || map[cls] || '📍';
+}
+
+function pickUnusedColor() {
+  const palette = ['#1e3a5f','#4d7c0f','#c53d2d','#b8860b','#0d6e6e','#7c3aed','#db2777','#0369a1','#854d0e','#166534'];
+  const used = new Set(Object.values(trip.places).map(p => p.color));
+  return palette.find(c => !used.has(c)) || palette[Math.floor(Math.random() * palette.length)];
+}
+
+async function searchNominatim(q) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&addressdetails=1&accept-language=en`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Raahi/1.0' },
+      signal: AbortSignal.timeout(5000),
+    });
+    return res.ok ? await res.json() : [];
+  } catch { return []; }
+}
+
+async function fetchWikiThumbnail(name) {
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`,
+      { signal: AbortSignal.timeout(3000) }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.thumbnail?.source || null;
+  } catch { return null; }
+}
+
+function parseNominatimResult(r) {
+  const addr = r.address || {};
+  const name = (addr.city || addr.town || addr.village || addr.suburb ||
+                addr.county || addr.state || r.display_name.split(',')[0]).trim();
+  const parts = r.display_name.split(', ');
+  const region = parts.slice(1, -1).join(', ');
+  return {
+    name,
+    region: region || '',
+    lat: parseFloat(r.lat),
+    lng: parseFloat(r.lon),
+    emoji: placeTypeEmoji(r.type, r.class),
+  };
+}
+
+function _showApmStep(step) {
+  const s = $('#apm-step-search');
+  const c = $('#apm-step-confirm');
+  if (s) s.style.display = step === 'search'  ? '' : 'none';
+  if (c) c.style.display = step === 'confirm' ? '' : 'none';
+  if (step === 'search') {
+    const inp = $('#apm-search-input');
+    if (inp) { inp.value = ''; }
+    const res = $('#apm-results');
+    if (res) res.innerHTML = '';
   }
+}
+
+function _updateApmNightsDisplay() {
+  const el = $('#apm-nights-val');
+  if (el) el.textContent = _apmNights;
+  const minus = $('#apm-nights-minus');
+  if (minus) minus.disabled = _apmNights <= 1;
 }
 
 function initAddPlaceModal() {
   const modal = $('#add-place-modal');
   if (!modal) return;
 
-  modal.querySelectorAll('.apm-close').forEach(btn => btn.addEventListener('click', closeAddPlaceModal));
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeAddPlaceModal();
-  });
+  // Close
+  $('#apm-close-btn')?.addEventListener('click', closeAddPlaceModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeAddPlaceModal(); });
 
-  // Wire up date range picker for the add-place modal
-  const apmDateRange = modal.querySelector('.apm-date-range');
-  const apmStart = modal.querySelector('.apm-start');
-  const apmEnd = modal.querySelector('.apm-end');
-  const apmNights = modal.querySelector('.apm-nights');
-  if (apmDateRange && window.flatpickr) {
-    const { min, max } = tripDateRange();
-    const maxPlus = max ? (() => { const d = new Date(max + 'T00:00:00'); d.setDate(d.getDate() + 1); return d; })() : null;
-    flatpickr(apmDateRange, {
-      mode: 'range',
-      dateFormat: 'M j, Y',
-      rangeSeparator: ' → ',
-      minDate: min || null,
-      maxDate: maxPlus || null,
-      onChange(selectedDates) {
-        apmStart.value = selectedDates[0] ? selectedDates[0].toISOString().slice(0, 10) : '';
-        apmEnd.value   = selectedDates[1] ? selectedDates[1].toISOString().slice(0, 10) : '';
-        if (apmNights) apmNights.value = calcNights(apmStart.value, apmEnd.value) || (apmStart.value ? 1 : '');
-      }
+  // Search input with debounced Nominatim
+  const searchInput = $('#apm-search-input');
+  const resultsEl   = $('#apm-results');
+  if (searchInput && resultsEl) {
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.trim();
+      clearTimeout(_nominatimTimer);
+      resultsEl.innerHTML = '';
+      if (q.length < 2) return;
+      _nominatimTimer = setTimeout(async () => {
+        const raw = await searchNominatim(q);
+        resultsEl.innerHTML = '';
+        if (!raw.length) {
+          const li = document.createElement('li');
+          li.className = 'apm-result-item';
+          li.style.cssText = 'cursor:default;color:var(--ink-muted)';
+          li.textContent = 'No results — try a different spelling';
+          resultsEl.appendChild(li);
+          return;
+        }
+        raw.forEach(r => {
+          const p = parseNominatimResult(r);
+          const li = document.createElement('li');
+          li.className = 'apm-result-item';
+          li.setAttribute('role', 'option');
+          li.innerHTML = `
+            <span class="apm-result-emoji">${p.emoji}</span>
+            <div>
+              <div class="apm-result-name">${escHtml(p.name)}</div>
+              <div class="apm-result-region">${escHtml(p.region)}</div>
+            </div>`;
+          li.addEventListener('click', () => _apmSelectResult(p));
+          resultsEl.appendChild(li);
+        });
+      }, 400);
     });
   }
 
-  modal.querySelector('form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const name = fd.get('name').toString().trim();
-    if (!name) return;
+  // Nights stepper
+  $('#apm-nights-minus')?.addEventListener('click', () => {
+    if (_apmNights > 1) { _apmNights--; _updateApmNightsDisplay(); }
+  });
+  $('#apm-nights-plus')?.addEventListener('click', () => {
+    _apmNights++;
+    _updateApmNightsDisplay();
+  });
 
-    const key = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const startDate = fd.get('startDate') || '';
-    const endDate = fd.get('endDate') || '';
-    const nights = calcNights(startDate, endDate) || parseInt(fd.get('nights')) || 1;
-    const dates = (startDate && endDate)
-      ? `${new Date(startDate+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}–${new Date(endDate+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}`
-      : 'TBD';
-    const lat = parseFloat(fd.get('lat')) || null;
-    const lng = parseFloat(fd.get('lng')) || null;
+  // Back to search
+  $('#apm-back-btn')?.addEventListener('click', () => _showApmStep('search'));
 
-    // Pick a color
-    const colors = ['#1e3a5f', '#4d7c0f', '#c53d2d', '#b8860b', '#0d6e6e', '#7c3aed', '#db2777'];
-    const usedColors = Object.values(trip.places).map(p => p.color);
-    const color = colors.find(c => !usedColors.includes(c)) || colors[Math.floor(Math.random() * colors.length)];
+  // Emoji button → toggle picker
+  $('#apm-emoji-btn')?.addEventListener('click', e => {
+    e.stopPropagation();
+    const picker = $('#apm-emoji-picker');
+    if (picker) picker.style.display = picker.style.display === 'none' ? 'grid' : 'none';
+  });
 
-    // Add to places
-    trip.places[key] = {
-      name, color, bg: '#f5f0e8', emoji: '📍', img: '', lat, lng,
-    };
+  // Build emoji picker options
+  const picker = $('#apm-emoji-picker');
+  if (picker) {
+    APM_EMOJIS.forEach(em => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'apm-emoji-opt';
+      btn.textContent = em;
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        _apmEmoji = em;
+        const emojiBtn = $('#apm-emoji-btn');
+        if (emojiBtn) emojiBtn.textContent = em;
+        picker.style.display = 'none';
+      });
+      picker.appendChild(btn);
+    });
+  }
 
-    // If opened from within the IEP, add as a new segment there
-    if (iepAddingPlace) {
-      iepAddingPlace = false;
-      saveTrip(); // persist the new place definition
-      closeAddPlaceModal();
-      iepSegments.push({ segId: generateId(), key, nights });
-      if (iepAutoBalance) iepRebalance();
-      renderIEP();
-      showToast(`${name} added`);
-      return;
+  // Close emoji picker on outside click
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.apm-emoji-wrap')) {
+      const p = $('#apm-emoji-picker');
+      if (p) p.style.display = 'none';
     }
+  });
 
-    // Normal flow: add to route
-    trip.route.push({ city: name, dates, nights, key });
+  // Confirm
+  $('#apm-confirm-btn')?.addEventListener('click', _apmConfirm);
+}
+
+async function _apmSelectResult(p) {
+  _apmSelected = p;
+  _apmEmoji    = p.emoji;
+  _apmNights   = 1;
+  _apmImgUrl   = null;
+
+  // Show confirm step immediately with what we know
+  const emojiBtn  = $('#apm-emoji-btn');
+  const nameEl    = $('#apm-preview-name');
+  const regionEl  = $('#apm-preview-region');
+  const imgEl     = $('#apm-preview-img');
+  if (emojiBtn)  emojiBtn.textContent  = p.emoji;
+  if (nameEl)    nameEl.textContent    = p.name;
+  if (regionEl)  regionEl.textContent  = p.region;
+  if (imgEl)     imgEl.style.display   = 'none';
+  _updateApmNightsDisplay();
+  _showApmStep('confirm');
+
+  // Async: try Wikipedia thumbnail
+  const thumb = await fetchWikiThumbnail(p.name);
+  if (thumb && imgEl) {
+    _apmImgUrl = thumb;
+    imgEl.src = thumb;
+    imgEl.style.display = '';
+  }
+}
+
+function _apmConfirm() {
+  if (!_apmSelected) return;
+
+  const p     = _apmSelected;
+  const raw   = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // avoid key collisions
+  let key = raw || 'place';
+  if (trip.places[key]) key = key + Object.keys(trip.places).length;
+
+  const color = pickUnusedColor();
+
+  trip.places[key] = {
+    name:  p.name,
+    color,
+    bg:    '#f5f0e8',
+    emoji: _apmEmoji,
+    img:   _apmImgUrl || '',
+    lat:   p.lat,
+    lng:   p.lng,
+  };
+
+  closeAddPlaceModal();
+
+  if (iepAddingPlace) {
+    iepAddingPlace = false;
     saveTrip();
-    closeAddPlaceModal();
+    iepSegments.push({ segId: generateId(), key, nights: _apmNights });
+    if (iepAutoBalance) iepRebalance();
+    renderIEP();
+    showToast(`${p.name} added`);
+  } else {
+    trip.route.push({ city: p.name, dates: 'TBD', nights: _apmNights, key });
+    saveTrip();
     renderPlaces();
     renderRouteMap();
     renderFilterBar();
-    showToast(`${name} added to your trip`);
-  });
+    showToast(`${p.name} added to your trip`);
+  }
 }
 
 // ===================================================================

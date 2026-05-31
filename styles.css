@@ -2328,6 +2328,98 @@ select {
   color: var(--ink-muted);
 }
 
+/* ─── Add Place Modal ──────────────────────────────────────── */
+.apm-card {
+  width: min(440px, 92vw);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,.35);
+}
+.apm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.apm-header h3 { margin: 0; font-size: 1rem; font-weight: 600; }
+.apm-close-btn {
+  background: none; border: none; font-size: 1.4rem;
+  cursor: pointer; color: var(--ink-muted); line-height: 1; padding: 2px 6px;
+}
+.apm-step { padding: 16px 20px 20px; }
+.apm-search-wrap { margin-bottom: 8px; }
+.apm-search-input {
+  width: 100%; padding: 10px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  font-size: 0.95rem; background: var(--bg-section); color: var(--ink);
+  outline: none; box-sizing: border-box;
+}
+.apm-search-input:focus { border-color: var(--accent); }
+.apm-results {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 260px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-card);
+}
+.apm-results:empty { display: none; }
+.apm-result-item {
+  padding: 10px 14px; cursor: pointer;
+  display: flex; align-items: flex-start; gap: 10px;
+  border-bottom: 1px solid var(--border); transition: background 120ms;
+}
+.apm-result-item:last-child { border-bottom: none; }
+.apm-result-item:hover { background: var(--bg-section); }
+.apm-result-emoji { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+.apm-result-name { font-weight: 600; font-size: 0.9rem; }
+.apm-result-region { font-size: 0.78rem; color: var(--ink-muted); }
+.apm-hint { margin: 10px 0 0; font-size: 0.75rem; color: var(--ink-muted); text-align: center; }
+/* confirm step */
+.apm-preview-row {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 16px; padding: 12px;
+  background: var(--bg-section); border-radius: var(--radius);
+}
+.apm-emoji-wrap { position: relative; flex-shrink: 0; }
+.apm-emoji-btn {
+  background: none; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 1.8rem; width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: border-color 150ms;
+}
+.apm-emoji-btn:hover { border-color: var(--accent); }
+.apm-emoji-picker {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 10;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.2); min-width: 200px;
+}
+.apm-emoji-opt {
+  background: none; border: none; font-size: 1.3rem;
+  width: 36px; height: 36px; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; border-radius: 6px;
+  transition: background 120ms;
+}
+.apm-emoji-opt:hover { background: var(--bg-section); }
+.apm-preview-info { flex: 1; min-width: 0; }
+.apm-preview-info strong { display: block; font-size: 1rem; }
+.apm-preview-info span { font-size: 0.8rem; color: var(--ink-muted); }
+.apm-preview-img {
+  width: 64px; height: 64px; object-fit: cover;
+  border-radius: var(--radius); flex-shrink: 0;
+}
+.apm-nights-field {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 16px;
+}
+.apm-nights-field label { font-size: 0.88rem; font-weight: 600; }
+.apm-stepper { display: flex; align-items: center; gap: 14px; }
+.apm-nights-val { font-size: 1.1rem; font-weight: 700; min-width: 28px; text-align: center; }
+.apm-confirm-actions { display: flex; gap: 10px; }
+.apm-confirm-actions .btn { flex: 1; }
+
 /* Inline notify button in booking toolbar */
 .notify-toolbar-btn { opacity: 0.75; }
 .notify-toolbar-btn:disabled { display: none; } /* hide once enabled */
@@ -2975,6 +3067,9 @@ a:hover .maps-link-icon { opacity: .7; }
   opacity: 1;
   pointer-events: auto;
 }
+
+/* Add-place modal sits above IEP panel (z-index 1040) */
+#add-place-modal { z-index: 1055; }
 
 .bulk-content {
   width: min(560px, 90vw);
