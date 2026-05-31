@@ -1853,19 +1853,29 @@ let _nominatimTimer = null;
 
 const APM_EMOJIS = ['📍','🏙️','🏘️','🏡','🏝️','⛰️','🗻','🌲','🌳','🌸','🏖️','🌊','⛩️','🛕','🏯','🏛️','🎋','🗾','🌺','🏔️'];
 
-function placeTypeEmoji(type, cls) {
+function placeTypeEmoji(osmValue, osmKey) {
+  // Primary lookup on osm_value (the specific type), fallback on osm_key (the category)
   const map = {
-    city:'🏙️', administrative:'🏙️', town:'🏙️', municipality:'🏙️',
-    suburb:'🏘️', village:'🏡', hamlet:'🏡', neighbourhood:'🏘️',
-    island:'🏝️', islet:'🏝️',
-    mountain_pass:'⛰️', peak:'⛰️', ridge:'⛰️',
-    park:'🌳', national_park:'🌲', forest:'🌲', wood:'🌲',
-    beach:'🏖️', bay:'🌊', lake:'🏞️', river:'🌊', water:'🌊',
-    shrine:'⛩️', temple:'🛕', castle:'🏯', museum:'🏛️',
-    station:'🚅', airport:'✈️',
-    peninsula:'🗾', district:'🏙️', county:'🏙️',
+    // settlement types
+    city:'🏙️', administrative:'🏙️', town:'🏙️', municipality:'🏙️', locality:'🏘️',
+    suburb:'🏘️', village:'🏡', hamlet:'🏡', neighbourhood:'🏘️', quarter:'🏘️',
+    // geographic features
+    island:'🏝️', islet:'🏝️', peninsula:'🗾',
+    mountain_pass:'⛰️', peak:'⛰️', ridge:'⛰️', volcano:'🌋',
+    park:'🌳', national_park:'🌲', forest:'🌲', wood:'🌲', nature_reserve:'🌿',
+    beach:'🏖️', bay:'🌊', lake:'🏞️', river:'🌊', water:'🌊', waterfall:'💧',
+    // landmarks & tourism
+    shrine:'⛩️', temple:'🛕', castle:'🏯', museum:'🏛️', attraction:'🎡',
+    artwork:'🎨', viewpoint:'👁️', theme_park:'🎢', zoo:'🦁', aquarium:'🐠',
+    // transport
+    station:'🚅', railway:'🚅', airport:'✈️', ferry_terminal:'⛴️',
+    // admin
+    district:'🏙️', county:'🏙️', state:'📍', country:'📍',
+    // Photon osm_key fallbacks
+    place:'📍', tourism:'🎡', natural:'🌿', leisure:'🎡', amenity:'📍',
+    railway:'🚅', aeroway:'✈️',
   };
-  return map[type] || map[cls] || '📍';
+  return map[osmValue] || map[osmKey] || '📍';
 }
 
 function pickUnusedColor() {
@@ -1875,13 +1885,20 @@ function pickUnusedColor() {
 }
 
 async function searchNominatim(q) {
+  // Use Photon (photon.komoot.io) — OSM data, free, no API key, and crucially it sends
+  // Access-Control-Allow-Origin: * so browsers can actually receive the response.
+  // nominatim.openstreetmap.org does NOT send CORS headers, so every browser fetch
+  // silently returns nothing even though curl / the website work fine.
   try {
-    // namedetails=1 gives us name:en (English names) — crucial for Japanese places like
-    // Miyajima where the OSM primary name is 宮島 but name:en = "Miyajima"
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=6&addressdetails=1&namedetails=1&accept-language=en`;
-    // Note: browsers block setting User-Agent — omit it to avoid CORS preflight failures
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=6&lang=en`;
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    return res.ok ? await res.json() : [];
+    if (!res.ok) return [];
+    const data = await res.json();
+    // Filter out streets and boundaries — users want places, not roads
+    return (data.features || []).filter(f => {
+      const k = f.properties?.osm_key;
+      return k !== 'highway' && k !== 'boundary' && f.properties?.type !== 'street';
+    });
   } catch { return []; }
 }
 
@@ -1898,35 +1915,24 @@ async function fetchWikiThumbnail(name) {
 }
 
 function parseNominatimResult(r) {
-  const addr = r.address || {};
-  const nd   = r.namedetails || {};
+  // r is a Photon GeoJSON Feature
+  // geometry.coordinates = [lng, lat]  ← longitude comes FIRST in GeoJSON
+  const p    = r.properties || {};
+  const name = (p.name || p.locality || p.city || 'Unknown').trim();
 
-  // Priority: English name tag → any name tag → address hierarchy → display_name first token
-  // addr.island / addr.locality / addr.place catch things like Miyajima (island) and
-  // Arashiyama (district) that don't have city/town/village address fields
-  const name = (
-    nd['name:en'] ||
-    nd['alt_name:en'] ||
-    nd['name'] ||
-    addr.city || addr.town || addr.village ||
-    addr.island || addr.locality || addr.place ||
-    addr.suburb || addr.quarter ||
-    addr.county ||
-    r.display_name.split(',')[0]
-  ).trim();
+  // Build a readable region string, avoiding duplicating the name itself
+  const cityPart  = (p.city && p.city !== name) ? p.city : null;
+  const statePart = (p.state || '').replace(/ Prefecture$/, '').replace(/ (Ken|To|Do|Fu)$/, '');
+  const region    = [cityPart, statePart].filter(Boolean).join(', ');
 
-  // Region: prefecture / state + country, skipping the name itself
-  const regionParts = [
-    addr.county || addr.district,
-    addr.state  || addr.province,
-  ].filter(Boolean);
+  const [lng, lat] = r.geometry?.coordinates || [0, 0];
 
   return {
     name,
-    region: regionParts.join(', '),
-    lat:    parseFloat(r.lat),
-    lng:    parseFloat(r.lon),
-    emoji:  placeTypeEmoji(r.type, r.class),
+    region,
+    lat,
+    lng,
+    emoji: placeTypeEmoji(p.osm_value, p.osm_key),
   };
 }
 
