@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v42';
+const APP_VERSION = 'v43';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2454,13 +2454,22 @@ function renderBookingConflictBanner() {
     </div>`;
   }).join('');
 
+  // Collect unique city names across all conflicts for the compact mobile header
+  const conflictCities = [...new Set(
+    conflicts.flatMap(({ a, b }) => [
+      trip.places[a.colorKey]?.name,
+      trip.places[b.colorKey]?.name,
+    ].filter(Boolean))
+  )];
+  const cityLabel = conflictCities.length ? ` in ${conflictCities.join(', ')}` : '';
+
   const banner = document.createElement('div');
   banner.id = 'booking-conflict-banner';
   banner.className = 'booking-conflict-banner';
   banner.innerHTML = `
     <div class="bcb-header">
       <span class="bcb-icon">⚠️</span>
-      <strong>${conflicts.length} overlapping hotel booking${conflicts.length > 1 ? 's' : ''}</strong>
+      <strong>${conflicts.length} overlapping hotel booking${conflicts.length > 1 ? 's' : ''}${cityLabel}</strong>
       <span class="bcb-hint">— you have two hotels booked for the same night(s)</span>
     </div>
     <div class="bcb-list">${rows}</div>`;
