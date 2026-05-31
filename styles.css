@@ -5002,3 +5002,87 @@ body.is-readonly .booking-panel-body { pointer-events: none; }
   padding: 0;
 }
 .map-reset-btn:hover { background: #f4f4f4; }
+
+/* ================================================
+   DAY-DIM — place-focus mode (scroll + dim)
+   ================================================ */
+.day-card.day-dimmed {
+  opacity: 0.28;
+  transition: opacity .2s;
+}
+.day-card:not(.day-dimmed) {
+  transition: opacity .2s;
+}
+
+/* ================================================
+   MOBILE RESPONSIVE — 768px and below
+   ================================================ */
+@media (max-width: 768px) {
+
+  /* ── Filter bar: full-width horizontal scroll strip ── */
+  .filter-bar {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 12px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 4px 6px;
+    margin: 16px 0;
+    /* fade edges to hint scroll */
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+  }
+  .filter-bar::-webkit-scrollbar { display: none; }
+
+  /* ── Bookings toolbar: stack filters above actions ── */
+  .booking-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .booking-filters {
+    order: 1;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .booking-filters::-webkit-scrollbar { display: none; }
+  .bf-filter-bar { flex-wrap: nowrap; }
+
+  .booking-toolbar-actions {
+    order: 2;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+  /* Hide verbose notify status on mobile — too much text */
+  .notify-status { display: none; }
+  /* Shrink notify button label on mobile */
+  .notify-toolbar-btn { font-size: .75rem; padding: .3rem .6rem; }
+
+  /* ── Day panel add form: stack type + time ── */
+  .paf-row {
+    flex-wrap: wrap;
+  }
+  .paf-type { flex: 1 1 100%; }
+  .paf-time { width: 100%; }
+
+  /* ── Booking conflict banner: compact ── */
+  .bcb-list  { display: none; }   /* hide detail rows */
+  .bcb-hint  { display: none; }   /* hide "same night(s)" sub-text */
+  .bcb-header {
+    flex-wrap: nowrap;
+    font-size: .8rem;
+  }
+  .booking-conflict-banner { padding: .55rem .75rem; }
+}
+
+/* ================================================
+   MOBILE RESPONSIVE — 480px and below
+   ================================================ */
+@media (max-width: 480px) {
+  /* Even smaller filter pills */
+  .filter-pill { padding: 5px 12px; font-size: .75rem; }
+}

@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v41';
+const APP_VERSION = 'v42';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -539,7 +539,8 @@ function renderRouteMap() {
       tooltipAnchor: [13, 0],
     });
 
-    const marker = L.marker([s.dLat, s.dLng], { icon }).addTo(routeMap);
+    // Lower stop numbers sit on top when pins overlap (zIndexOffset is additive with lat-based z)
+    const marker = L.marker([s.dLat, s.dLng], { icon, zIndexOffset: (stops.length - i) * 100 }).addTo(routeMap);
 
     marker.bindTooltip(
       `<div class="map-tip"><strong>${s.place.emoji} ${s.stop.city}</strong>`
@@ -1131,16 +1132,35 @@ function renderIEPFooter() {
 // ===================================================================
 
 function filterByPlace(placeKey) {
-  // Set filter pill active
   $$('.filter-pill').forEach(p => p.classList.remove('active'));
   const pill = $(`.filter-pill[data-place="${placeKey}"]`);
   if (pill) pill.classList.add('active');
 
-  renderDayList(placeKey);
+  // Always show all days — dim the ones that don't match so context is preserved
+  renderDayList('all');
+  applyDayDim(placeKey);
 
-  // Scroll to itinerary
+  // Scroll itinerary section into view, then nudge to first matching day
   const section = $('#itinerary');
   if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (placeKey !== 'all') {
+    requestAnimationFrame(() => {
+      const first = $(`#day-list .day-card[data-place="${placeKey}"]`);
+      if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
+}
+
+// Dim every day card whose place doesn't match placeKey.
+// Passing 'all' clears all dimming.
+function applyDayDim(placeKey) {
+  $$('#day-list .day-card').forEach(card => {
+    if (placeKey === 'all') {
+      card.classList.remove('day-dimmed');
+    } else {
+      card.classList.toggle('day-dimmed', card.dataset.place !== placeKey);
+    }
+  });
 }
 
 // ===================================================================
@@ -1180,10 +1200,15 @@ function renderFilterBar() {
 
       if (placeKey === 'today') {
         renderDayList('all');
+        applyDayDim('all');
         scrollToToday();
         updateFilterStatus('all');
+      } else if (placeKey === 'all') {
+        renderDayList('all');
+        applyDayDim('all');
+        updateFilterStatus('all');
       } else {
-        renderDayList(placeKey);
+        filterByPlace(placeKey);
         updateFilterStatus(placeKey);
       }
     });
@@ -1223,9 +1248,6 @@ function renderDayList(filter = 'all') {
   dayList.innerHTML = trip.days.map((day, idx) => {
     const d = parseDate(day.date);
     const place = trip.places[day.placeKey] || trip.places.transit;
-
-    // Filter
-    if (filter !== 'all' && filter !== 'today' && day.placeKey !== filter) return '';
 
     const schedule = getSchedule(idx);
     const wishlist = getWishlist(idx);
@@ -1271,6 +1293,11 @@ function renderDayList(filter = 'all') {
   });
 
   highlightToday();
+
+  // Re-apply active dim after re-render
+  const activePill = $('.filter-pill.active');
+  const activeKey = activePill?.dataset?.place;
+  if (activeKey && activeKey !== 'all' && activeKey !== 'today') applyDayDim(activeKey);
 }
 
 // ===================================================================
