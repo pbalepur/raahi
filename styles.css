@@ -4944,3 +4944,42 @@ body.is-readonly .booking-panel-body { pointer-events: none; }
   padding: 0 3px;
   pointer-events: none;
 }
+
+/* ================================================
+   ROUTE MAP — numbered stop pins & tooltip
+   ================================================ */
+.map-stop-pin {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+  cursor: pointer;
+  transition: transform .12s;
+}
+.map-stop-pin:hover { transform: scale(1.18); }
+
+.map-tip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: .8rem;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.map-tip strong { font-size: .85rem; }
+.map-tip span   { color: #555; font-size: .75rem; }
+
+/* Leaflet tooltip reset so our styles take effect */
+.leaflet-tooltip {
+  padding: 5px 9px !important;
+  border-radius: 6px !important;
+  border: 1px solid rgba(0,0,0,.12) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15) !important;
+}

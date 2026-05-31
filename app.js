@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v39';
+const APP_VERSION = 'v40';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -455,32 +455,41 @@ function renderRouteMap() {
   const container = $('#route-map');
   if (!container || typeof L === 'undefined') return;
 
-  // Gather place coords
-  const coords = [];
-  const markers = [];
+  // Build one entry per route stop (repeats included) — skip stops with no coords
+  const stops = trip.route
+    .map((stop, routeIdx) => {
+      const place = trip.places[stop.key];
+      return (place?.lat && place?.lng) ? { stop, place, routeIdx } : null;
+    })
+    .filter(Boolean);
 
-  // Start: first day's place
-  trip.route.forEach(stop => {
-    const place = trip.places[stop.key];
-    if (place && place.lat && place.lng) {
-      coords.push([place.lat, place.lng]);
-      markers.push({ lat: place.lat, lng: place.lng, place, stop });
-    }
-  });
-
-  if (coords.length < 2) {
+  if (stops.length < 2) {
     container.innerHTML = '<p style="padding:24px;color:var(--ink-muted);text-align:center">Add place coordinates to see the route map</p>';
     return;
   }
 
-  // Dedupe coords for unique pins
-  const seen = new Set();
-  const uniqueMarkers = markers.filter(m => {
-    const key = `${m.lat},${m.lng}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  // Offset markers that share the same lat/lng (e.g. Hiroshima visited twice)
+  // Group by rounded coords, then spread duplicates in a small circle (~1 km radius)
+  const byCoord = {};
+  stops.forEach(s => {
+    const k = `${s.place.lat.toFixed(3)},${s.place.lng.toFixed(3)}`;
+    (byCoord[k] ??= []).push(s);
   });
+  Object.values(byCoord).forEach(group => {
+    const R = 0.009; // ~1 km in degrees
+    group.forEach((s, i) => {
+      if (group.length === 1) {
+        s.dLat = s.place.lat;
+        s.dLng = s.place.lng;
+      } else {
+        const angle = (2 * Math.PI * i) / group.length - Math.PI / 2;
+        s.dLat = s.place.lat + R * Math.cos(angle);
+        s.dLng = s.place.lng + R * Math.sin(angle);
+      }
+    });
+  });
+
+  const lineCoords = stops.map(s => [s.dLat, s.dLng]);
 
   if (routeMap) routeMap.remove();
   routeMap = L.map(container, { scrollWheelZoom: false, zoomControl: true });
@@ -491,38 +500,39 @@ function renderRouteMap() {
     subdomains: 'abcd',
   }).addTo(routeMap);
 
-  // Fit bounds with padding
-  const bounds = L.latLngBounds(coords);
-  routeMap.fitBounds(bounds, { padding: [30, 30] });
+  routeMap.fitBounds(L.latLngBounds(lineCoords), { padding: [30, 30] });
 
-  // Route polyline
-  L.polyline(coords, {
+  // Route polyline connecting stops in order
+  L.polyline(lineCoords, {
     color: '#1c183a',
-    weight: 2.5,
-    opacity: 0.5,
-    dashArray: '8,6',
+    weight: 2,
+    opacity: 0.45,
+    dashArray: '7,5',
   }).addTo(routeMap);
 
-  // City markers
-  uniqueMarkers.forEach((m, i) => {
-    const circleMarker = L.circleMarker([m.lat, m.lng], {
-      radius: 8,
-      fillColor: m.place.color,
-      color: '#fff',
-      weight: 2,
-      fillOpacity: 0.9,
-    }).addTo(routeMap);
+  // Numbered markers — one per stop in journey order
+  stops.forEach((s, i) => {
+    const num    = i + 1;
+    const nights = s.stop.nights || 0;
+    const days   = getRouteSegmentDays(s.routeIdx).length;
 
-    circleMarker.bindPopup(`
-      <strong>${m.place.emoji} ${m.stop.city}</strong><br>
-      ${m.stop.dates} · ${m.stop.nights} night${m.stop.nights > 1 ? 's' : ''}<br>
-      <a href="${mapsUrl(m.stop.city)}" target="_blank" rel="noreferrer">Open in Google Maps</a>
-    `);
-
-    circleMarker.on('click', () => {
-      const placeKey = m.stop.key;
-      filterByPlace(placeKey);
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="map-stop-pin" style="background:${s.place.color};border-color:${s.place.color}">${num}</div>`,
+      iconSize:   [26, 26],
+      iconAnchor: [13, 13],
+      tooltipAnchor: [13, 0],
     });
+
+    const marker = L.marker([s.dLat, s.dLng], { icon }).addTo(routeMap);
+
+    marker.bindTooltip(
+      `<div class="map-tip"><strong>${s.place.emoji} ${s.stop.city}</strong>`
+      + `<span>${nights} night${nights !== 1 ? 's' : ''} · ${days} day${days !== 1 ? 's' : ''}</span></div>`,
+      { direction: 'top', offset: [0, -10], opacity: 1 }
+    );
+
+    marker.on('click', () => filterByPlace(s.stop.key));
   });
 }
 
