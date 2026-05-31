@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v38';
+const APP_VERSION = 'v39';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -3943,29 +3943,40 @@ async function init() {
     saveLocal();
   }
 
-  // Migration v6: collapse duplicate trip.places entries that share the same name.
-  // Earlier versions of the Add Place flow could create e.g. "hiroshima" and "hiroshima12"
-  // both named "Hiroshima". Keep the first key alphabetically; reassign all days, route
-  // stops and bookings that referenced the duplicate key(s).
+  // Migration v6 (superseded by v7 — intentionally left as no-op placeholder)
   if ((trip.meta?.version || 1) < 6) {
+    trip.meta.version = 6;
+    saveLocal();
+  }
+
+  // Migration v7: collapse duplicate trip.places entries that share the same name,
+  // doing a best-of merge (keeps richest img / emoji / coords from all duplicates).
+  // Re-runs over v6 data which may have incorrectly discarded the richer entry.
+  if ((trip.meta?.version || 1) < 7) {
     const byName = {};
     for (const [key, p] of Object.entries(trip.places)) {
       const norm = p.name.trim().toLowerCase();
       (byName[norm] ??= []).push(key);
     }
-    let merged = false;
     for (const keys of Object.values(byName)) {
       if (keys.length < 2) continue;
       const [keepKey, ...dropKeys] = keys;
+      const keep = trip.places[keepKey];
       dropKeys.forEach(oldKey => {
-        trip.days.forEach(d     => { if (d.placeKey  === oldKey) d.placeKey  = keepKey; });
-        trip.route.forEach(r    => { if (r.key        === oldKey) r.key        = keepKey; });
-        trip.bookings.forEach(b => { if (b.colorKey   === oldKey) b.colorKey   = keepKey; });
+        const drop = trip.places[oldKey];
+        if (!drop) return;
+        // Absorb any richer fields from the duplicate before deleting it
+        if (!keep.img   && drop.img)                       keep.img   = drop.img;
+        if (!keep.lat   && drop.lat)                       keep.lat   = drop.lat;
+        if (!keep.lng   && drop.lng)                       keep.lng   = drop.lng;
+        if (keep.emoji === '📍' && drop.emoji !== '📍')   keep.emoji = drop.emoji;
+        trip.days.forEach(d     => { if (d.placeKey === oldKey) d.placeKey = keepKey; });
+        trip.route.forEach(r    => { if (r.key      === oldKey) r.key      = keepKey; });
+        trip.bookings.forEach(b => { if (b.colorKey === oldKey) b.colorKey = keepKey; });
         delete trip.places[oldKey];
-        merged = true;
       });
     }
-    trip.meta.version = 6;
+    trip.meta.version = 7;
     saveLocal();
   }
 
@@ -4033,6 +4044,24 @@ async function init() {
   // Stamp version number in footer
   const verEl = $('#app-version');
   if (verEl) verEl.textContent = APP_VERSION;
+
+  // Background: fetch Wikipedia thumbnails for any places still missing an image.
+  // Runs silently after the page is live — no await, doesn't block anything.
+  backfillPlaceImages();
+}
+
+async function backfillPlaceImages() {
+  const missing = Object.entries(trip.places).filter(([, p]) => !p.img && p.name);
+  if (!missing.length) return;
+  let changed = false;
+  for (const [key, place] of missing) {
+    const thumb = await fetchWikiThumbnail(place.name);
+    if (thumb) { place.img = thumb; changed = true; }
+  }
+  if (changed) {
+    saveLocal();
+    renderPlaces();
+  }
 }
 
 init();
