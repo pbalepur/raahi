@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v40';
+const APP_VERSION = 'v41';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -500,7 +500,22 @@ function renderRouteMap() {
     subdomains: 'abcd',
   }).addTo(routeMap);
 
-  routeMap.fitBounds(L.latLngBounds(lineCoords), { padding: [30, 30] });
+  const fitOpts = { padding: [30, 30] };
+  const bounds  = L.latLngBounds(lineCoords);
+  routeMap.fitBounds(bounds, fitOpts);
+
+  // Reset-view control (top-right, below zoom buttons)
+  const ResetControl = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const btn = L.DomUtil.create('button', 'map-reset-btn');
+      btn.title = 'Reset view';
+      btn.innerHTML = '⊙';
+      L.DomEvent.on(btn, 'click', e => { L.DomEvent.stopPropagation(e); routeMap.fitBounds(bounds, fitOpts); });
+      return btn;
+    },
+  });
+  new ResetControl().addTo(routeMap);
 
   // Route polyline connecting stops in order
   L.polyline(lineCoords, {
