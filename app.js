@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v47';
+const APP_VERSION = 'v48';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -525,9 +525,10 @@ function renderRouteMap() {
     dashArray: '7,5',
   }).addTo(routeMap);
 
-  // Numbered markers — one per stop in journey order
+  // Numbered markers — number from full route position so skipped stops
+  // (missing coords) don't collapse the sequence.
   stops.forEach((s, i) => {
-    const num    = i + 1;
+    const num    = s.routeIdx + 1;
     const nights = s.stop.nights || 0;
     const days   = getRouteSegmentDays(s.routeIdx).length;
 
@@ -540,7 +541,7 @@ function renderRouteMap() {
     });
 
     // Lower stop numbers sit on top when pins overlap (zIndexOffset is additive with lat-based z)
-    const marker = L.marker([s.dLat, s.dLng], { icon, zIndexOffset: (stops.length - i) * 100 }).addTo(routeMap);
+    const marker = L.marker([s.dLat, s.dLng], { icon, zIndexOffset: (trip.route.length - s.routeIdx) * 100 }).addTo(routeMap);
 
     marker.bindTooltip(
       `<div class="map-tip"><strong>${s.place.emoji} ${s.stop.city}</strong>`
