@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v46';
+const APP_VERSION = 'v47';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -1254,7 +1254,7 @@ function renderDayList(filter = 'all') {
     const totalCount = schedule.length + wishlist.length;
 
     // Stay: explicit day data takes priority, fall back to booking lookup
-    const stayBooking = !day.stay ? getStayBookingForDate(day.date) : null;
+    const stayBooking = getStayBookingForDate(day.date);  // always look up
     const hotelName = day.stay?.hotel || stayBooking?.title || 'In transit';
 
     // Travel: explicit day data takes priority, fall back to booking lookup
@@ -1403,13 +1403,28 @@ function openDayPanel(dayIdx) {
   const schedule = getSchedule(dayIdx);
   const wishlist = getWishlist(dayIdx);
 
-  // Sort schedule: timed items first (by time), then ampm-only items
-  const sortedSchedule = schedule.sort((a, b) => {
+  // Sort schedule into Morning → Afternoon → Evening buckets,
+  // then within each bucket by specific time (timed items first).
+  // A specific time determines the bucket: <12:00 = Morning, 12-17 = Afternoon, ≥17 = Evening.
+  const timeToBucket = t => {
+    const h = parseInt((t || '').split(':')[0], 10);
+    if (isNaN(h)) return null;
+    if (h < 12) return 0;
+    if (h < 17) return 1;
+    return 2;
+  };
+  const ampmBucket = { AM: 0, PM: 1, EVE: 2 };
+  const getBucket = item =>
+    item.time ? timeToBucket(item.time) : (ampmBucket[(item.ampm || 'AM').toUpperCase()] ?? 0);
+
+  const sortedSchedule = [...schedule].sort((a, b) => {
+    const bktDiff = getBucket(a) - getBucket(b);
+    if (bktDiff !== 0) return bktDiff;
+    // Same bucket: specific-time items first, then sort by time string
     if (a.time && b.time) return a.time.localeCompare(b.time);
-    if (a.time && !b.time) return -1;
-    if (!a.time && b.time) return 1;
-    const ampmOrder = { AM: 0, PM: 1, EVE: 2 };
-    return (ampmOrder[(a.ampm || '').toUpperCase()] || 0) - (ampmOrder[(b.ampm || '').toUpperCase()] || 0);
+    if (a.time)  return -1;
+    if (b.time)  return  1;
+    return 0;
   });
 
   // Header
@@ -1425,19 +1440,19 @@ function openDayPanel(dayIdx) {
 
   // Stay badge — explicit day.stay takes priority, fall back to booking lookup
   const stayEl      = panel.querySelector('.panel-stay');
-  const stayBooking = !day.stay ? getStayBookingForDate(day.date) : null;
-  // Merge: day.stay fields win for name/room/conf, but always supplement
-  // with live booking data for neighborhood/address (which day.stay never had).
-  // Never use day.stay.url — it can be stale. Always use the booking URL.
+  // Always look up live booking so ALL nights get current url/neighborhood/address.
+  // day.stay is only used for name/room/conf overrides (manual edits).
+  const stayBooking = getStayBookingForDate(day.date);
   const stayData = (() => {
     if (!day.stay && !stayBooking) return null;
-    const base = day.stay
-      ? { hotel: day.stay.hotel, room: day.stay.room, confirmation: day.stay.confirmation }
-      : { hotel: stayBooking.title, room: '', confirmation: stayBooking.confirmation };
-    const bk = stayBooking || {};
+    const bk   = stayBooking || {};
+    const ds   = day.stay    || {};
+    const hotel        = ds.hotel        || bk.title        || '';
+    const room         = ds.room         || (bk.notes || '').split('\n')[0].trim() || '';
+    const confirmation = ds.confirmation || bk.confirmation  || '';
     return {
-      ...base,
-      url:          bk.url          || '',   // always from live booking, never stale day.stay.url
+      hotel, room, confirmation,
+      url:          bk.url          || '',  // always live booking — never stale day.stay.url
       neighborhood: bk.neighborhood || '',
       address:      bk.address      || '',
       fromBooking:  !!stayBooking,
@@ -1588,7 +1603,6 @@ function renderPanelItem(item, dayIdx, isSchedule) {
         </div>
       </div>
       <div class="pi-detail" style="display:none">
-        ${isSchedule ? `
         <div class="pi-detail-row">
           <label>Time</label>
           <input type="time" class="pi-time-input" value="${item.time || ''}" data-id="${item.id}"
@@ -1597,12 +1611,12 @@ function renderPanelItem(item, dayIdx, isSchedule) {
         <div class="pi-detail-row">
           <label>Period</label>
           <select class="pi-ampm-select" data-id="${item.id}" title="Rough period — leave blank if specific time is set">
-            <option value="" ${item.time || !item.ampm ? 'selected' : ''}>— use time above —</option>
+            <option value="" ${item.time || !item.ampm ? 'selected' : ''}>— select —</option>
             <option value="AM"  ${!item.time && item.ampm === 'AM'  ? 'selected' : ''}>Morning</option>
             <option value="PM"  ${!item.time && item.ampm === 'PM'  ? 'selected' : ''}>Afternoon</option>
             <option value="EVE" ${!item.time && item.ampm === 'EVE' ? 'selected' : ''}>Evening</option>
           </select>
-        </div>` : ''}
+        </div>
         <div class="pi-detail-row">
           <label>Move to Day</label>
           <select class="pi-move-day" data-id="${item.id}">
@@ -1721,17 +1735,31 @@ function attachPanelHandlers(dayIdx) {
     });
   });
 
-  // Promote (wishlist → schedule) — reads time/ampm from expanded form inputs
+  // Promote (wishlist → schedule) — requires time OR period selection
   panel.querySelectorAll('.pi-promote').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!isEditMode()) return;
       const itemId = btn.dataset.id;
       const idx = parseInt(btn.dataset.idx);
       const item = btn.closest('.panel-item');
-      const timeInput = item.querySelector('.pi-time-input');
+      const timeInput  = item.querySelector('.pi-time-input');
       const ampmSelect = item.querySelector('.pi-ampm-select');
-      const time = timeInput?.value || null;
-      const ampm = ampmSelect?.value || (time ? null : 'AM');
+      const time = timeInput?.value  || null;
+      const ampm = ampmSelect?.value || null;
+
+      // Require at least one of: specific time or period
+      if (!time && !ampm) {
+        let msg = item.querySelector('.pi-time-required');
+        if (!msg) {
+          msg = document.createElement('p');
+          msg.className = 'pi-time-required';
+          item.querySelector('.pi-detail-actions').insertAdjacentElement('beforebegin', msg);
+        }
+        msg.textContent = 'Set a time or pick Morning / Afternoon / Evening first.';
+        timeInput?.focus();
+        return;
+      }
+      item.querySelector('.pi-time-required')?.remove();
 
       // Capture original wishlist item for undo
       const wlItems = getWishlist(idx);
@@ -2703,12 +2731,16 @@ function workerBookingToLocal(wb) {
   const categoryMap = {
     hotel: 'hotel', flight: 'flight',
     train: 'rail', transport: 'rail',
-    restaurant: 'hotel', activity: 'hotel', other: 'hotel'
+    restaurant: 'activity', activity: 'activity',
+    event: 'activity', ticket: 'activity',
+    other: 'hotel',
   };
   const iconMap = {
     hotel: 'hotel', flight: 'plane',
     train: 'train', transport: 'train',
-    restaurant: 'hotel', activity: 'hotel', other: 'hotel'
+    restaurant: 'calendar', activity: 'calendar',
+    event: 'calendar', ticket: 'calendar',
+    other: 'hotel',
   };
 
   const category = categoryMap[wb.type] || 'hotel';
@@ -2746,8 +2778,18 @@ function workerBookingToLocal(wb) {
   };
 
   if (category === 'hotel') {
-    booking.checkIn  = wb.checkIn  || '';
-    booking.checkOut = wb.checkOut || '';
+    booking.checkIn      = wb.checkIn      || '';
+    booking.checkOut     = wb.checkOut     || '';
+    booking.neighborhood = wb.neighborhood || detectNeighborhood(wb.name || '');
+    booking.address      = wb.address      || '';
+    // Room type: prefer explicit field, fall back to first line of notes
+    const firstNote = (wb.notes || '').split('\n')[0].trim();
+    if (wb.room) { booking.notes = [wb.room, wb.notes].filter(Boolean).join('\n'); }
+    else if (firstNote) { /* notes already has room in first line */ }
+  } else if (category === 'activity') {
+    booking.activityDate = wb.activityDate || wb.checkIn || wb.transitDate || '';
+    booking.activityTime = wb.activityTime || wb.time    || '';
+    booking.address      = wb.address      || '';
   } else if (category === 'rail') {
     // Claude returns structured train fields
     booking.transitDate = wb.transitDate || wb.checkIn || '';
