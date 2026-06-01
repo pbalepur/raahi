@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v44';
+const APP_VERSION = 'v45';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -1427,24 +1427,27 @@ function openDayPanel(dayIdx) {
   const stayEl      = panel.querySelector('.panel-stay');
   const stayBooking = !day.stay ? getStayBookingForDate(day.date) : null;
   const stayData    = day.stay
-    ? { hotel: day.stay.hotel, room: day.stay.room, confirmation: day.stay.confirmation, url: day.stay.url, fromBooking: false }
+    ? { hotel: day.stay.hotel, room: day.stay.room, confirmation: day.stay.confirmation, url: day.stay.url, neighborhood: day.stay.neighborhood || '', address: day.stay.address || '', fromBooking: false }
     : stayBooking
-      ? { hotel: stayBooking.title, room: '', confirmation: stayBooking.confirmation, url: stayBooking.url, fromBooking: true }
+      ? { hotel: stayBooking.title, room: '', confirmation: stayBooking.confirmation, url: stayBooking.url, neighborhood: stayBooking.neighborhood || '', address: stayBooking.address || '', fromBooking: true }
       : null;
 
   if (stayData) {
-    const stayUrl = stayData.url
-      ? ` <a href="${escHtml(stayData.url)}" target="_blank" rel="noreferrer" class="stay-link">${ICONS.arrow}</a>`
+    const neighborhood = stayData.neighborhood || detectNeighborhood(stayData.hotel || '');
+    const mapQuery = stayData.address || `${stayData.hotel} Japan`;
+    const mapLink = `<a href="https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}" target="_blank" rel="noreferrer" class="stay-map-link" title="Open in Google Maps">${ICONS.mapPin}</a>`;
+    const bookingLink = stayData.url
+      ? `<a href="${escHtml(stayData.url)}" target="_blank" rel="noreferrer" class="stay-link" title="Hotel website">${ICONS.arrow}</a>`
       : '';
     stayEl.innerHTML = `
       <div class="stay-badge${stayData.fromBooking ? ' stay-badge-linked' : ''}">
         <span class="stay-icon">🏨</span>
         <div class="stay-info">
-          <strong>${escHtml(stayData.hotel)}</strong>
+          <strong>${escHtml(stayData.hotel)}</strong>${neighborhood ? `<span class="stay-neighborhood"> · ${escHtml(neighborhood)}</span>` : ''}
           ${stayData.room         ? `<span>${escHtml(stayData.room)}</span>` : ''}
           ${stayData.confirmation ? `<span class="stay-conf">Conf: ${escHtml(stayData.confirmation)}</span>` : ''}
         </div>
-        ${stayUrl}
+        ${mapLink}${bookingLink}
       </div>`;
     stayEl.style.display = '';
   } else {
@@ -2263,9 +2266,10 @@ function fmtTime12(timeStr) {
 }
 
 function getBookingSortDate(b) {
-  if (b.category === 'hotel') return b.checkIn || '9999';
-  if (b.category === 'flight') return b.outbound?.departDate || '9999';
-  if (b.category === 'rail') return b.transitDate || b.legs?.[0]?.date || '9999';
+  if (b.category === 'hotel')    return b.checkIn || '9999';
+  if (b.category === 'flight')   return b.outbound?.departDate || '9999';
+  if (b.category === 'rail')     return b.transitDate || b.legs?.[0]?.date || '9999';
+  if (b.category === 'activity') return b.activityDate || '9999';
   return '9999';
 }
 
@@ -2278,12 +2282,30 @@ function renderBookingBody(b) {
     const nights = calcNights(b.checkIn, b.checkOut);
     const nightsLabel = nights ? `${nights} night${nights > 1 ? 's' : ''}` : '';
     const firstNoteLine = (b.notes || '').split('\n')[0];
+    const mapQuery = b.address || `${b.title} Japan`;
+    const mapLink = `<a href="https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}" target="_blank" rel="noreferrer" class="booking-map-link">📍 Map</a>`;
     return `
       <dl class="booking-dl">
         <dt>Dates</dt><dd>${fmtBookingDate(b.checkIn)} → ${fmtBookingDate(b.checkOut)}${nightsLabel ? ` <span class="booking-nights">(${nightsLabel})</span>` : ''}</dd>
+        ${b.neighborhood ? `<dt>Area</dt><dd>${escHtml(b.neighborhood)}</dd>` : ''}
+        ${b.address      ? `<dt>Address</dt><dd>${escHtml(b.address)} ${mapLink}</dd>` : `<dt>Map</dt><dd>${mapLink}</dd>`}
         ${b.confirmation ? `<dt>Confirmation</dt><dd class="booking-mono">${escHtml(b.confirmation)}</dd>` : ''}
         ${b.cost ? `<dt>Cost</dt><dd>${escHtml(b.cost)}</dd>` : ''}
         ${firstNoteLine ? `<dt>Room</dt><dd>${escHtml(firstNoteLine)}</dd>` : ''}
+      </dl>`;
+  }
+
+  if (b.category === 'activity') {
+    const time = b.activityTime ? ` · ${fmtTime12(b.activityTime)}` : '';
+    const mapQuery = b.address || `${b.title} Japan`;
+    const mapLink = `<a href="https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}" target="_blank" rel="noreferrer" class="booking-map-link">📍 Map</a>`;
+    return `
+      <dl class="booking-dl">
+        ${b.activityDate ? `<dt>Date</dt><dd>${fmtBookingDate(b.activityDate)}${time}</dd>` : ''}
+        ${b.address ? `<dt>Address</dt><dd>${escHtml(b.address)} ${mapLink}</dd>` : `<dt>Map</dt><dd>${mapLink}</dd>`}
+        ${b.confirmation ? `<dt>Confirmation</dt><dd class="booking-mono">${escHtml(b.confirmation)}</dd>` : ''}
+        ${b.cost ? `<dt>Cost</dt><dd>${escHtml(b.cost)}</dd>` : ''}
+        ${b.notes ? `<dt>Notes</dt><dd>${escHtml(b.notes)}</dd>` : ''}
       </dl>`;
   }
 
@@ -2356,13 +2378,19 @@ function bookingMetaLine(b) {
     const route = from && to ? `${from} → ${to}` : (from || to || '');
     return `${route}${date ? ' · ' + date : ''}${time}${conf}`;
   }
+  if (b.category === 'activity') {
+    const date = b.activityDate ? new Date(b.activityDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    const time = b.activityTime ? ` · ${fmtTime12(b.activityTime)}` : '';
+    return `${date}${time}${conf}`;
+  }
   return '';
 }
 
 function bookingVendorLabel(b) {
-  if (b.category === 'hotel') return 'Hotel site';
-  if (b.category === 'flight') return 'Airline';
-  if (b.category === 'rail') return 'Rail / Bus';
+  if (b.category === 'hotel')    return 'Hotel site';
+  if (b.category === 'flight')   return 'Airline';
+  if (b.category === 'rail')     return 'Rail / Bus';
+  if (b.category === 'activity') return 'Tickets';
   return 'Website';
 }
 
@@ -2371,10 +2399,11 @@ function renderBookingFilters() {
   if (!bar) return;
 
   const cats = [
-    { key: 'all', label: 'All' },
-    { key: 'hotel', label: 'Hotels' },
-    { key: 'flight', label: 'Flights' },
-    { key: 'rail', label: 'Rail' },
+    { key: 'all',      label: 'All' },
+    { key: 'hotel',    label: 'Hotels' },
+    { key: 'flight',   label: 'Flights' },
+    { key: 'rail',     label: 'Rail' },
+    { key: 'activity', label: 'Activities' },
   ];
 
   // Place dropdown — only show if 2+ places have bookings
@@ -2498,7 +2527,7 @@ function renderBookings() {
     const idx = trip.bookings.indexOf(b);
     const place = trip.places[b.colorKey] || trip.places.transit || { name: 'Trip', color: '#78716c', bg: '#f5f0e8', emoji: '' };
     const icon = ICONS[b.icon] || ICONS.hotel;
-    const catLabel = b.category === 'flight' ? 'Flight' : b.category === 'rail' ? 'Rail' : 'Hotel';
+    const catLabel = { flight:'Flight', rail:'Rail', hotel:'Hotel', activity:'Activity' }[b.category] || 'Booking';
     const meta = bookingMetaLine(b);
     const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(b.title + ' Japan')}`;
     const vendorLabel = bookingVendorLabel(b);
@@ -2847,6 +2876,7 @@ function openBookingPanel(title, formHtml, onSubmit, onDelete) {
     <div class="bpf-actions">
       <button type="submit" class="btn btn-primary">Save</button>
       ${onDelete ? '<button type="button" class="btn btn-danger bpf-delete">Delete Booking</button>' : ''}
+      <button type="button" class="btn btn-outline bpf-cancel-bottom">Cancel</button>
     </div>
   </form>`;
 
@@ -2860,6 +2890,9 @@ function openBookingPanel(title, formHtml, onSubmit, onDelete) {
   const close = () => panel.classList.remove('open');
   panel.querySelector('.booking-panel-close').onclick = close;
   panel.querySelector('.booking-panel-backdrop').onclick = close;
+
+  // Cancel bottom button
+  form.querySelector('.bpf-cancel-bottom')?.addEventListener('click', close);
 
   // Delete
   const delBtn = form.querySelector('.bpf-delete');
@@ -2988,8 +3021,28 @@ function wireUpDateHelpers(form) {
   }
 }
 
+// Detects a neighbourhood from a hotel name using common Japanese districts.
+function detectNeighborhood(hotelName) {
+  const hoods = [
+    // Tokyo
+    'Ginza','Shinjuku','Shibuya','Akihabara','Asakusa','Harajuku','Roppongi',
+    'Ueno','Marunouchi','Nihonbashi','Odaiba','Ikebukuro','Ebisu','Daikanyama',
+    'Shimokitazawa','Nakameguro','Toranomon','Azabu','Minami-Aoyama','Minami Aoyama',
+    'Nishi-Shinjuku','Yaesu','Otemachi','Kanda','Akasaka','Hiroo',
+    // Kyoto
+    'Gion','Higashiyama','Arashiyama','Fushimi','Kawaramachi','Nishiki',
+    // Osaka
+    'Dotonbori','Namba','Shinsaibashi','Umeda','Naamba',
+    // Hiroshima / others
+    'Naka','Minami','Nishi','Higashi',
+  ];
+  const lower = hotelName.toLowerCase();
+  return hoods.find(h => lower.includes(h.toLowerCase())) || '';
+}
+
 function buildHotelFields(b) {
   const { min, max } = tripDateRange();
+  const autoNeighbor = b.neighborhood || detectNeighborhood(b.title || '');
   return `
     <div class="bpf-field">
       <label>Place <span class="bpf-req">*</span></label>
@@ -2998,6 +3051,16 @@ function buildHotelFields(b) {
     <div class="bpf-field">
       <label>Hotel name <span class="bpf-req">*</span></label>
       <input type="text" name="title" value="${escHtml(b.title)}" required placeholder="e.g. Aloft Tokyo Ginza">
+    </div>
+    <div class="bpf-row">
+      <div class="bpf-field">
+        <label>Neighbourhood</label>
+        <input type="text" name="neighborhood" value="${escHtml(autoNeighbor)}" placeholder="e.g. Ginza">
+      </div>
+      <div class="bpf-field">
+        <label>Address</label>
+        <input type="text" name="address" value="${escHtml(b.address || '')}" placeholder="Street address">
+      </div>
     </div>
     <div class="bpf-row">
       <div class="bpf-field">
@@ -3023,7 +3086,7 @@ function buildHotelFields(b) {
     </div>
     <div class="bpf-field">
       <label>Notes</label>
-      <textarea name="notes" rows="3" placeholder="Room type, address, phone...">${escHtml(b.notes || '')}</textarea>
+      <textarea name="notes" rows="2" placeholder="Room type, phone...">${escHtml(b.notes || '')}</textarea>
     </div>
     <div class="bpf-field">
       <label>Booking URL</label>
@@ -3147,6 +3210,43 @@ function buildTransitFields(b) {
     </div>`;
 }
 
+function buildActivityFields(b) {
+  const { min, max } = tripDateRange();
+  return `
+    <div class="bpf-field">
+      <label>Place</label>
+      <select name="colorKey" class="bpf-select">${placePickerHtml(b.colorKey, false)}</select>
+    </div>
+    <div class="bpf-field">
+      <label>Activity name <span class="bpf-req">*</span></label>
+      <input type="text" name="title" value="${escHtml(b.title)}" required placeholder="e.g. TeamLab Planets, Sushi Saito Dinner">
+    </div>
+    <div class="bpf-row">
+      <div class="bpf-field"><label>Date <span class="bpf-req">*</span></label>
+        <input type="date" name="activityDate" value="${b.activityDate || ''}" required min="${min}" max="${max}"></div>
+      <div class="bpf-field"><label>Time</label>
+        <input type="time" name="activityTime" value="${b.activityTime || ''}"></div>
+    </div>
+    <div class="bpf-field">
+      <label>Address</label>
+      <input type="text" name="address" value="${escHtml(b.address || '')}" placeholder="Street address or landmark">
+    </div>
+    <div class="bpf-row">
+      <div class="bpf-field"><label>Confirmation #</label>
+        <input type="text" name="confirmation" value="${escHtml(b.confirmation || '')}"></div>
+      <div class="bpf-field"><label>Cost</label>
+        <input type="text" name="cost" value="${escHtml(b.cost || '')}" placeholder="e.g. ¥3,200"></div>
+    </div>
+    <div class="bpf-field">
+      <label>Notes</label>
+      <textarea name="notes" rows="2" placeholder="Dress code, what to bring...">${escHtml(b.notes || '')}</textarea>
+    </div>
+    <div class="bpf-field">
+      <label>Booking URL</label>
+      <input type="url" name="url" value="${escHtml(b.url || '')}" placeholder="https://...">
+    </div>`;
+}
+
 function readFormIntoBooking(fd, booking) {
   booking.title = fd.get('title')?.toString().trim() || '';
   booking.colorKey = fd.get('colorKey')?.toString() || booking.colorKey || 'transit';
@@ -3156,8 +3256,14 @@ function readFormIntoBooking(fd, booking) {
   booking.notes = fd.get('notes')?.toString().trim() || '';
 
   if (booking.category === 'hotel') {
-    booking.checkIn = fd.get('checkIn') || '';
-    booking.checkOut = fd.get('checkOut') || '';
+    booking.checkIn      = fd.get('checkIn')      || '';
+    booking.checkOut     = fd.get('checkOut')     || '';
+    booking.neighborhood = fd.get('neighborhood')?.toString().trim() || '';
+    booking.address      = fd.get('address')?.toString().trim()      || '';
+  } else if (booking.category === 'activity') {
+    booking.activityDate = fd.get('activityDate') || '';
+    booking.activityTime = fd.get('activityTime') || '';
+    booking.address      = fd.get('address')?.toString().trim() || '';
   } else if (booking.category === 'flight') {
     const readLeg = (prefix) => ({
       flight: fd.get(`${prefix}_flight`)?.toString().trim() || '',
@@ -3185,11 +3291,12 @@ function openBookingEditor(idx) {
   const snapshot = JSON.parse(JSON.stringify(booking));
 
   let fields = '';
-  if (booking.category === 'hotel') fields = buildHotelFields(booking);
-  else if (booking.category === 'flight') fields = buildFlightFields(booking);
-  else fields = buildTransitFields(booking);
+  if (booking.category === 'hotel')        fields = buildHotelFields(booking);
+  else if (booking.category === 'flight')  fields = buildFlightFields(booking);
+  else if (booking.category === 'activity') fields = buildActivityFields(booking);
+  else                                      fields = buildTransitFields(booking);
 
-  const catLabel = booking.category === 'flight' ? 'Flight' : booking.category === 'hotel' ? 'Hotel' : 'Transit';
+  const catLabel = { hotel:'Hotel', flight:'Flight', rail:'Rail / Bus', activity:'Activity' }[booking.category] || 'Booking';
 
   openBookingPanel(`Edit ${catLabel}`, fields,
     (fd) => {
@@ -3236,6 +3343,7 @@ function openNewBookingForm(category) {
         <button type="button" class="bpf-type-btn" data-cat="hotel">${ICONS.hotel}<span>Hotel</span></button>
         <button type="button" class="bpf-type-btn" data-cat="flight">${ICONS.plane}<span>Flight</span></button>
         <button type="button" class="bpf-type-btn" data-cat="rail">${ICONS.train}<span>Rail / Bus</span></button>
+        <button type="button" class="bpf-type-btn" data-cat="activity"><span style="font-size:1.4rem">🎟️</span><span>Activity</span></button>
       </div>`;
     openBookingPanel('New Booking', pickerHtml, () => {}, null);
     // Prevent form submit on type picker (no actual form fields yet)
@@ -3251,21 +3359,24 @@ function openNewBookingForm(category) {
     return;
   }
 
+  const iconMap = { flight:'plane', rail:'train', activity:'calendar', hotel:'hotel' };
   const blank = {
     category,
-    icon: category === 'flight' ? 'plane' : category === 'rail' ? 'train' : 'hotel',
+    icon: iconMap[category] || 'hotel',
     title: '', colorKey: '', confirmation: '', cost: '', notes: '', url: '',
   };
-  if (category === 'hotel') { blank.checkIn = ''; blank.checkOut = ''; }
-  if (category === 'flight') { blank.outbound = {}; blank.inbound = {}; }
-  if (category === 'rail') { blank.transitDate = ''; blank.transitTime = ''; blank.transitFrom = ''; blank.transitTo = ''; }
+  if (category === 'hotel')    { blank.checkIn = ''; blank.checkOut = ''; blank.neighborhood = ''; blank.address = ''; }
+  if (category === 'flight')   { blank.outbound = {}; blank.inbound = {}; }
+  if (category === 'rail')     { blank.transitDate = ''; blank.transitTime = ''; blank.transitFrom = ''; blank.transitTo = ''; }
+  if (category === 'activity') { blank.activityDate = ''; blank.activityTime = ''; blank.address = ''; }
 
   let fields = '';
-  if (category === 'hotel') fields = buildHotelFields(blank);
-  else if (category === 'flight') fields = buildFlightFields(blank);
-  else fields = buildTransitFields(blank);
+  if (category === 'hotel')        fields = buildHotelFields(blank);
+  else if (category === 'flight')  fields = buildFlightFields(blank);
+  else if (category === 'activity') fields = buildActivityFields(blank);
+  else                              fields = buildTransitFields(blank);
 
-  const catLabel = category === 'flight' ? 'Flight' : category === 'hotel' ? 'Hotel' : 'Rail / Bus';
+  const catLabel = { hotel:'Hotel', flight:'Flight', rail:'Rail / Bus', activity:'Activity' }[category] || category;
 
   openBookingPanel(`New ${catLabel}`, fields,
     (fd) => {

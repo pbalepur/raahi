@@ -3662,16 +3662,35 @@ a:hover .maps-link-icon { opacity: .7; }
   color: var(--ink-faint) !important;
 }
 
-.stay-link {
-  margin-left: auto;
-  flex-shrink: 0;
+.stay-neighborhood {
   color: var(--ink-muted);
+  font-weight: 400;
+  font-size: 0.8rem;
 }
 
-.stay-link svg {
+.stay-link,
+.stay-map-link {
+  flex-shrink: 0;
+  color: var(--ink-muted);
+  display: flex;
+  align-items: center;
+}
+.stay-map-link { margin-left: auto; }
+.stay-link     { margin-left: 6px; }
+
+.stay-link svg,
+.stay-map-link svg {
   width: 16px;
   height: 16px;
 }
+
+.booking-map-link {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  text-decoration: none;
+  margin-left: 6px;
+}
+.booking-map-link:hover { color: var(--ink); }
 
 /* Travel card */
 .travel-card {
