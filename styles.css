@@ -3899,12 +3899,16 @@ a:hover .maps-link-icon { opacity: .7; }
 
 .pi-detail-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-top: 14px;
+  flex-wrap: wrap;
 }
 
+/* pi-detail uses .btn classes now — keep legacy selectors for compat */
 .pi-demote,
-.pi-promote {
+.pi-promote,
+.pi-save-time {
   padding: 5px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -3916,6 +3920,12 @@ a:hover .maps-link-icon { opacity: .7; }
   font-family: var(--font-sans);
   transition: all var(--transition);
 }
+.pi-save-time {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.pi-save-time:hover { opacity: .85; }
 
 .pi-demote:hover,
 .pi-promote:hover {
@@ -3925,7 +3935,7 @@ a:hover .maps-link-icon { opacity: .7; }
 }
 
 .pi-delete {
-  padding: 5px 12px;
+  padding: 5px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
@@ -3950,6 +3960,14 @@ a:hover .maps-link-icon { opacity: .7; }
   border-color: var(--vermillion);
   color: var(--vermillion);
   background: var(--vermillion-light);
+}
+
+/* Time input consistent with app style */
+.pi-time-input {
+  background: var(--bg-section) !important;
+  color: var(--ink) !important;
+  border-color: var(--border) !important;
+  font-family: var(--font-sans) !important;
 }
 
 /* Panel add form */

@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v45';
+const APP_VERSION = 'v46';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -1426,16 +1426,30 @@ function openDayPanel(dayIdx) {
   // Stay badge — explicit day.stay takes priority, fall back to booking lookup
   const stayEl      = panel.querySelector('.panel-stay');
   const stayBooking = !day.stay ? getStayBookingForDate(day.date) : null;
-  const stayData    = day.stay
-    ? { hotel: day.stay.hotel, room: day.stay.room, confirmation: day.stay.confirmation, url: day.stay.url, neighborhood: day.stay.neighborhood || '', address: day.stay.address || '', fromBooking: false }
-    : stayBooking
-      ? { hotel: stayBooking.title, room: '', confirmation: stayBooking.confirmation, url: stayBooking.url, neighborhood: stayBooking.neighborhood || '', address: stayBooking.address || '', fromBooking: true }
-      : null;
+  // Merge: day.stay fields win for name/room/conf, but always supplement
+  // with live booking data for neighborhood/address (which day.stay never had).
+  // Never use day.stay.url — it can be stale. Always use the booking URL.
+  const stayData = (() => {
+    if (!day.stay && !stayBooking) return null;
+    const base = day.stay
+      ? { hotel: day.stay.hotel, room: day.stay.room, confirmation: day.stay.confirmation }
+      : { hotel: stayBooking.title, room: '', confirmation: stayBooking.confirmation };
+    const bk = stayBooking || {};
+    return {
+      ...base,
+      url:          bk.url          || '',   // always from live booking, never stale day.stay.url
+      neighborhood: bk.neighborhood || '',
+      address:      bk.address      || '',
+      fromBooking:  !!stayBooking,
+    };
+  })();
 
   if (stayData) {
     const neighborhood = stayData.neighborhood || detectNeighborhood(stayData.hotel || '');
     const mapQuery = stayData.address || `${stayData.hotel} Japan`;
     const mapLink = `<a href="https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}" target="_blank" rel="noreferrer" class="stay-map-link" title="Open in Google Maps">${ICONS.mapPin}</a>`;
+    // Only show the booking-site link when the URL is clearly for this hotel
+    // (don't show stale links that might have been carried over from another property)
     const bookingLink = stayData.url
       ? `<a href="${escHtml(stayData.url)}" target="_blank" rel="noreferrer" class="stay-link" title="Hotel website">${ICONS.arrow}</a>`
       : '';
@@ -1574,16 +1588,21 @@ function renderPanelItem(item, dayIdx, isSchedule) {
         </div>
       </div>
       <div class="pi-detail" style="display:none">
+        ${isSchedule ? `
         <div class="pi-detail-row">
           <label>Time</label>
-          <input type="time" class="pi-time-input" value="${item.time || ''}" data-id="${item.id}">
-          <select class="pi-ampm-select" data-id="${item.id}">
-            <option value="">—</option>
-            <option value="AM" ${item.ampm === 'AM' ? 'selected' : ''}>Morning</option>
-            <option value="PM" ${item.ampm === 'PM' ? 'selected' : ''}>Afternoon</option>
-            <option value="EVE" ${item.ampm === 'EVE' ? 'selected' : ''}>Evening</option>
-          </select>
+          <input type="time" class="pi-time-input" value="${item.time || ''}" data-id="${item.id}"
+            autocomplete="off" title="Specific time — clears the period selector">
         </div>
+        <div class="pi-detail-row">
+          <label>Period</label>
+          <select class="pi-ampm-select" data-id="${item.id}" title="Rough period — leave blank if specific time is set">
+            <option value="" ${item.time || !item.ampm ? 'selected' : ''}>— use time above —</option>
+            <option value="AM"  ${!item.time && item.ampm === 'AM'  ? 'selected' : ''}>Morning</option>
+            <option value="PM"  ${!item.time && item.ampm === 'PM'  ? 'selected' : ''}>Afternoon</option>
+            <option value="EVE" ${!item.time && item.ampm === 'EVE' ? 'selected' : ''}>Evening</option>
+          </select>
+        </div>` : ''}
         <div class="pi-detail-row">
           <label>Move to Day</label>
           <select class="pi-move-day" data-id="${item.id}">
@@ -1598,11 +1617,12 @@ function renderPanelItem(item, dayIdx, isSchedule) {
         </div>
         <div class="pi-detail-actions">
           ${isSchedule
-            ? `<button class="pi-demote" data-id="${item.id}" data-idx="${dayIdx}">Move to Wishlist</button>`
-            : `<button class="pi-promote" data-id="${item.id}" data-idx="${dayIdx}">Move to Schedule</button>`
+            ? `<button class="pi-save-time btn btn-sm btn-primary" data-id="${item.id}" data-idx="${dayIdx}">Save</button>
+               <button class="pi-demote btn btn-sm btn-outline" data-id="${item.id}" data-idx="${dayIdx}">→ Wishlist</button>`
+            : `<button class="pi-promote btn btn-sm btn-primary" data-id="${item.id}" data-idx="${dayIdx}">→ Schedule</button>`
           }
-          <button class="pi-delete" data-id="${item.id}" data-idx="${dayIdx}" data-schedule="${isSchedule}">
-            ${ICONS.trash} Delete
+          <button class="pi-delete btn btn-sm btn-ghost" data-id="${item.id}" data-idx="${dayIdx}" data-schedule="${isSchedule}">
+            ${ICONS.trash}
           </button>
         </div>
       </div>
@@ -1658,6 +1678,46 @@ function attachPanelHandlers(dayIdx) {
       }
       openDayPanel(idx);
       renderDayList(getActiveFilter());
+    });
+  });
+
+  // Save time/period changes on a schedule item
+  panel.querySelectorAll('.pi-save-time').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!isEditMode()) return;
+      const itemId = btn.dataset.id;
+      const idx    = parseInt(btn.dataset.idx);
+      const panelItem  = btn.closest('.panel-item');
+      const timeInput  = panelItem.querySelector('.pi-time-input');
+      const ampmSelect = panelItem.querySelector('.pi-ampm-select');
+      const time  = timeInput?.value  || null;
+      const ampm  = (!time && ampmSelect?.value) ? ampmSelect.value : null;
+
+      const items = getSchedule(idx);
+      const item  = items.find(i => i.id === itemId);
+      if (!item) return;
+
+      item.time = time;
+      item.ampm = ampm;
+      saveEdits();
+      openDayPanel(idx);
+      renderDayList(getActiveFilter());
+      showToast('Time saved');
+    });
+  });
+
+  // When a specific time is typed, clear the period select (they conflict)
+  panel.querySelectorAll('.pi-time-input').forEach(input => {
+    input.addEventListener('change', () => {
+      const ampmSelect = input.closest('.pi-detail').querySelector('.pi-ampm-select');
+      if (input.value && ampmSelect) ampmSelect.value = '';
+    });
+  });
+  // When a period is chosen, clear the specific time
+  panel.querySelectorAll('.pi-ampm-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const timeInput = sel.closest('.pi-detail').querySelector('.pi-time-input');
+      if (sel.value && timeInput) timeInput.value = '';
     });
   });
 
@@ -1849,20 +1909,22 @@ function showPanelAddForm(dayIdx, section, afterEl) {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const fd = new FormData(form);
-    const title = fd.get('title').toString().trim();
+    // Field names were prefixed with 'activity-' in v44 to suppress iOS AutoFill
+    const title = (fd.get('activity-label') || '').toString().trim();
     if (!title) return;
     const targetSection = fd.get('section');
 
     const item = {
       id: generateId(),
-      type: fd.get('type'),
+      type: fd.get('activity-type') || 'attraction',
       title,
-      notes: fd.get('notes')?.toString().trim() || '',
+      notes: (fd.get('activity-notes') || '').toString().trim(),
       status: targetSection === 'schedule' ? 'tentative' : 'wishlist',
     };
 
     if (targetSection === 'schedule') {
-      item.time = fd.get('time') || null;
+      const rawTime = (fd.get('activity-time') || '').toString();
+      item.time = rawTime || null;
       item.ampm = item.time ? null : 'AM';
       addScheduleItem(dayIdx, item);
     } else {
