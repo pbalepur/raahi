@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v43';
+const APP_VERSION = 'v44';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -1812,11 +1812,13 @@ function showPanelAddForm(dayIdx, section, afterEl) {
     </div>
     <input type="hidden" name="section" value="schedule">
     <div class="paf-row">
-      <select name="type" class="paf-type">${typeOptions}</select>
-      <input type="time" name="time" class="paf-time">
+      <select name="activity-type" class="paf-type">${typeOptions}</select>
+      <input type="time" name="activity-time" class="paf-time" autocomplete="off">
     </div>
-    <input type="text" name="title" class="paf-title" placeholder="Activity name..." required autofocus>
-    <input type="text" name="notes" class="paf-notes" placeholder="Notes (optional)">
+    <input type="text" name="activity-label" class="paf-title" placeholder="Activity name…" required autofocus
+      autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="false">
+    <input type="text" name="activity-notes" class="paf-notes" placeholder="Notes (optional)"
+      autocomplete="off" autocorrect="off" autocapitalize="sentences">
     <div class="paf-actions">
       <button type="submit" class="btn btn-primary btn-sm">Add</button>
       <button type="button" class="btn btn-outline btn-sm paf-cancel">Cancel</button>

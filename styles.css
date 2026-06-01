@@ -5086,3 +5086,20 @@ body.is-readonly .booking-panel-body { pointer-events: none; }
   /* Even smaller filter pills */
   .filter-pill { padding: 5px 12px; font-size: .75rem; }
 }
+
+/* ── Prevent iOS auto-zoom on input focus (requires font-size ≥ 16px) ── */
+@media (max-width: 768px) {
+  .paf-title,
+  .paf-notes,
+  .paf-type,
+  .paf-time,
+  .apm-search-input,
+  .epm-input,
+  input[type="text"],
+  input[type="time"],
+  input[type="password"],
+  input[type="email"],
+  select {
+    font-size: 16px !important;
+  }
+}
