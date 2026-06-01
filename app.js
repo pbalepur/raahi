@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v50';
+const APP_VERSION = 'v51';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -4333,16 +4333,28 @@ async function init() {
   backfillPlaceCoords();
 }
 
+// Japan rough bounding box — anything outside this is clearly wrong
+const JAPAN_BOUNDS = { minLat: 24, maxLat: 46, minLng: 122, maxLng: 146 };
+
+function coordsLookValid(lat, lng) {
+  if (!lat || !lng) return false;
+  return lat  >= JAPAN_BOUNDS.minLat && lat  <= JAPAN_BOUNDS.maxLat
+      && lng >= JAPAN_BOUNDS.minLng && lng <= JAPAN_BOUNDS.maxLng;
+}
+
 async function backfillPlaceCoords() {
-  // Geocode any place that is missing lat/lng using the Photon geocoder
-  const missing = Object.entries(trip.places).filter(([, p]) => p.name && (!p.lat || !p.lng));
-  if (!missing.length) return;
+  // Geocode places that are missing coords OR have coords outside Japan
+  // (can happen when old Nominatim CORS failures stored 0/garbage values)
+  const toFix = Object.entries(trip.places).filter(
+    ([, p]) => p.name && !coordsLookValid(p.lat, p.lng)
+  );
+  if (!toFix.length) return;
   let changed = false;
-  for (const [key, place] of missing) {
+  for (const [key, place] of toFix) {
     const results = await searchNominatim(place.name + ' Japan');
     if (!results.length) continue;
     const parsed = parseNominatimResult(results[0]);
-    if (parsed.lat && parsed.lng) {
+    if (coordsLookValid(parsed.lat, parsed.lng)) {
       place.lat = parsed.lat;
       place.lng = parsed.lng;
       changed = true;
