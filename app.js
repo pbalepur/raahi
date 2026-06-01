@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v49';
+const APP_VERSION = 'v50';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -4330,6 +4330,29 @@ async function init() {
   // Background: fetch Wikipedia thumbnails for any places still missing an image.
   // Runs silently after the page is live — no await, doesn't block anything.
   backfillPlaceImages();
+  backfillPlaceCoords();
+}
+
+async function backfillPlaceCoords() {
+  // Geocode any place that is missing lat/lng using the Photon geocoder
+  const missing = Object.entries(trip.places).filter(([, p]) => p.name && (!p.lat || !p.lng));
+  if (!missing.length) return;
+  let changed = false;
+  for (const [key, place] of missing) {
+    const results = await searchNominatim(place.name + ' Japan');
+    if (!results.length) continue;
+    const parsed = parseNominatimResult(results[0]);
+    if (parsed.lat && parsed.lng) {
+      place.lat = parsed.lat;
+      place.lng = parsed.lng;
+      changed = true;
+      console.log(`Geocoded ${place.name}: ${parsed.lat}, ${parsed.lng}`);
+    }
+  }
+  if (changed) {
+    saveLocal();
+    renderRouteMap();
+  }
 }
 
 async function backfillPlaceImages() {
