@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v48';
+const APP_VERSION = 'v49';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -509,8 +509,11 @@ function renderRouteMap() {
     options: { position: 'topright' },
     onAdd() {
       const btn = L.DomUtil.create('button', 'map-reset-btn');
-      btn.title = 'Reset view';
-      btn.innerHTML = '⊙';
+      btn.title = 'Fit full route to screen';
+      btn.setAttribute('aria-label', 'Fit full route to screen');
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+      </svg><span>Fit</span>`;
       L.DomEvent.on(btn, 'click', e => { L.DomEvent.stopPropagation(e); routeMap.fitBounds(bounds, fitOpts); });
       return btn;
     },
