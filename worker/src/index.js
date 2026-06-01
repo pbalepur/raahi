@@ -212,14 +212,17 @@ FOR HOTELS:
 {
   "type": "hotel",
   "name": "hotel name",
-  "confirmationNumber": "ref or null",
+  "confirmationNumber": "confirmation/reservation number or null",
   "tripId": "matching trip id or null",
-  "city": "city or null",
+  "city": "city name or null",
+  "neighborhood": "district or area within the city (e.g. Ginza, Shinjuku, Gion) or null",
+  "address": "full street address including building number, street, city — exactly as in email, or null",
+  "room": "room type or number if mentioned (e.g. Deluxe King, Room 812) or null",
   "checkIn": "YYYY-MM-DD",
   "checkOut": "YYYY-MM-DD",
   "cost": numeric or null,
   "currency": "JPY/USD/EUR/etc or null",
-  "notes": "useful extras (address, room type, etc) or null",
+  "notes": "any other useful extras (phone number, loyalty program, special requests) or null",
   "confidence": "high|medium|low"
 }
 
@@ -231,7 +234,7 @@ FOR FLIGHTS (round-trip or one-way):
   "tripId": "matching trip id or null",
   "outbound": {
     "flight": "flight number (e.g. UA837)",
-    "departAirport": "IATA code (e.g. ORD)",
+    "departAirport": "IATA code (e.g. SFO)",
     "arriveAirport": "IATA code (e.g. NRT)",
     "departDate": "YYYY-MM-DD",
     "departTime": "HH:MM (24h) or empty string",
@@ -275,26 +278,27 @@ FOR TRAINS / RAIL:
   "confidence": "high|medium|low"
 }
 
-FOR ACTIVITIES / RESTAURANTS / OTHER:
+FOR ACTIVITIES / RESTAURANTS / EVENTS:
 {
-  "type": "activity|restaurant|other",
-  "name": "name",
-  "confirmationNumber": "ref or null",
+  "type": "activity|restaurant|event",
+  "name": "venue or activity name",
+  "confirmationNumber": "reservation number or null",
   "tripId": "matching trip id or null",
   "city": "city or null",
-  "checkIn": "YYYY-MM-DD (date of event)",
-  "checkOut": null,
-  "time": "HH:MM (24h) or null",
+  "neighborhood": "district or area (e.g. Ginza, Gion) or null",
+  "address": "full street address or null",
+  "activityDate": "YYYY-MM-DD",
+  "activityTime": "HH:MM (24h) or null",
   "cost": numeric or null,
   "currency": "JPY/USD/etc or null",
-  "notes": "address, party size, etc or null",
+  "notes": "party size, dress code, special notes or null",
   "confidence": "high|medium|low"
 }
 
 Subject: ${subject}
 
 Email body:
-${emailText.slice(0, 5000)}`;
+${emailText.slice(0, 6000)}`;
 
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -305,7 +309,7 @@ ${emailText.slice(0, 5000)}`;
     },
     body: JSON.stringify({
       model:      'claude-haiku-4-5',
-      max_tokens: 800,
+      max_tokens: 1200,
       messages:   [{ role: 'user', content: prompt }],
     }),
   });
@@ -365,6 +369,9 @@ async function sendReply(inbound, booking, env) {
   }
 
   if (booking.confirmationNumber) lines.push(`Ref:    ${booking.confirmationNumber}`);
+  if (booking.neighborhood)       lines.push(`Area:   ${booking.neighborhood}`);
+  if (booking.address)            lines.push(`Addr:   ${booking.address}`);
+  if (booking.room)               lines.push(`Room:   ${booking.room}`);
   if (booking.cost)               lines.push(`Cost:   ${booking.currency || ''} ${booking.cost}`.trim());
   if (booking.notes)              lines.push(`Notes:  ${booking.notes}`);
 
