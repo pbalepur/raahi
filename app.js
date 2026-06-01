@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v51';
+const APP_VERSION = 'v52';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -1465,7 +1465,10 @@ function openDayPanel(dayIdx) {
 
   if (stayData) {
     const neighborhood = stayData.neighborhood || detectNeighborhood(stayData.hotel || '');
-    const mapQuery = stayData.address || `${stayData.hotel} Japan`;
+    // Always include hotel name so Google Maps finds the business, not just a street
+    const mapQuery = stayData.address
+      ? `${stayData.hotel}, ${stayData.address}`
+      : `${stayData.hotel} Japan`;
     const mapLink = `<a href="https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}" target="_blank" rel="noreferrer" class="stay-map-link" title="Open in Google Maps">${ICONS.mapPin}</a>`;
     // Only show the booking-site link when the URL is clearly for this hotel
     // (don't show stale links that might have been carried over from another property)
@@ -2376,7 +2379,9 @@ function renderBookingBody(b) {
     const nights = calcNights(b.checkIn, b.checkOut);
     const nightsLabel = nights ? `${nights} night${nights > 1 ? 's' : ''}` : '';
     const firstNoteLine = (b.notes || '').split('\n')[0];
-    const mapQuery = b.address || `${b.title} Japan`;
+    const mapQuery = b.address
+      ? `${b.title}, ${b.address}`
+      : `${b.title} Japan`;
     const mapLink = `<a href="https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}" target="_blank" rel="noreferrer" class="booking-map-link">📍 Map</a>`;
     return `
       <dl class="booking-dl">
@@ -2391,7 +2396,9 @@ function renderBookingBody(b) {
 
   if (b.category === 'activity') {
     const time = b.activityTime ? ` · ${fmtTime12(b.activityTime)}` : '';
-    const mapQuery = b.address || `${b.title} Japan`;
+    const mapQuery = b.address
+      ? `${b.title}, ${b.address}`
+      : `${b.title} Japan`;
     const mapLink = `<a href="https://www.google.com/maps/search/${encodeURIComponent(mapQuery)}" target="_blank" rel="noreferrer" class="booking-map-link">📍 Map</a>`;
     return `
       <dl class="booking-dl">
@@ -4351,10 +4358,8 @@ async function backfillPlaceCoords() {
   if (!toFix.length) return;
   let changed = false;
   for (const [key, place] of toFix) {
-    const results = await searchNominatim(place.name + ' Japan');
-    if (!results.length) continue;
-    const parsed = parseNominatimResult(results[0]);
-    if (coordsLookValid(parsed.lat, parsed.lng)) {
+    const parsed = await geocodeBestResult(place.name);
+    if (parsed && coordsLookValid(parsed.lat, parsed.lng)) {
       place.lat = parsed.lat;
       place.lng = parsed.lng;
       changed = true;
@@ -4365,6 +4370,27 @@ async function backfillPlaceCoords() {
     saveLocal();
     renderRouteMap();
   }
+}
+
+// Geocode a place name, preferring island/natural/peak results over
+// administrative ones. For islands, the first Photon result is often
+// the mainland admin district — we want the actual geographic feature.
+async function geocodeBestResult(name) {
+  const results = await searchNominatim(name + ' Japan');
+  if (!results.length) return null;
+
+  // Prefer: island > peak/mountain > locality/city > anything else
+  const rankOsmValue = v => {
+    if (!v) return 99;
+    if (v === 'island' || v === 'islet') return 0;
+    if (v === 'peak' || v === 'volcano' || v === 'ridge') return 1;
+    if (v === 'locality' || v === 'city' || v === 'town') return 2;
+    return 5;
+  };
+  const ranked = [...results].sort((a, b) =>
+    rankOsmValue(a.properties?.osm_value) - rankOsmValue(b.properties?.osm_value)
+  );
+  return parseNominatimResult(ranked[0]);
 }
 
 async function backfillPlaceImages() {
