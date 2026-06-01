@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v52';
+const APP_VERSION = 'v53';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -4266,6 +4266,28 @@ async function init() {
       });
     }
     trip.meta.version = 7;
+    saveLocal();
+  }
+
+  // Migration v8: remove orphaned trip.places entries — place keys that are
+  // not referenced by any route stop, day, or booking. Safe to delete; they
+  // only cause clutter in dropdowns. Preserve special keys (transit, home).
+  if ((trip.meta?.version || 1) < 8) {
+    const PROTECTED = new Set(['transit', 'home']);
+    const usedKeys  = new Set([
+      ...trip.route.map(r => r.key),
+      ...trip.days.map(d => d.placeKey),
+      ...trip.bookings.map(b => b.colorKey).filter(Boolean),
+    ]);
+    let pruned = false;
+    for (const key of Object.keys(trip.places)) {
+      if (!PROTECTED.has(key) && !usedKeys.has(key)) {
+        console.log(`Migration v8: removing orphaned place "${trip.places[key].name}" (key: ${key})`);
+        delete trip.places[key];
+        pruned = true;
+      }
+    }
+    trip.meta.version = 8;
     saveLocal();
   }
 
