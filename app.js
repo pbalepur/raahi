@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v53';
+const APP_VERSION = 'v54';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2684,7 +2684,7 @@ function urlBase64ToUint8Array(b64) {
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return null;
   try {
-    return await navigator.serviceWorker.register('/raahi/sw.js', { scope: '/raahi/' });
+    return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
   } catch (err) {
     console.warn('SW registration failed:', err);
     return null;

@@ -4,7 +4,7 @@
  */
 
 const WORKER_URL = 'https://raahi-worker.prashant-balepur.workers.dev';
-const APP_URL    = 'https://pbalepur.github.io/raahi/japan.html#bookings';
+const APP_URL    = 'https://heyraahi.com/japan.html#bookings';
 
 // ─── Push event ───────────────────────────────────────────────────────────────
 
@@ -27,8 +27,8 @@ self.addEventListener('push', event => {
 
     return self.registration.showNotification('📬 Raahi', {
       body,
-      icon:      '/raahi/icon-192.png',
-      badge:     '/raahi/favicon-32.png',
+      icon:      '/icon-192.png',
+      badge:     '/favicon-32.png',
       tag:       'raahi-inbox',   // replaces previous notification rather than stacking
       renotify:  true,
       data:      { url: APP_URL },

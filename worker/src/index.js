@@ -79,8 +79,15 @@ export default {
     const url  = new URL(request.url);
     const path = url.pathname;
 
+    // Allow both heyraahi.com and the old GitHub Pages URL during transition
+    const allowedOrigins = new Set([
+      env.ALLOWED_ORIGIN || 'https://heyraahi.com',
+      'https://pbalepur.github.io',
+      'https://heyraahi.com',
+    ]);
+    const requestOrigin = request.headers.get('Origin') || '';
     const cors = {
-      'Access-Control-Allow-Origin':  env.ALLOWED_ORIGIN || 'https://pbalepur.github.io',
+      'Access-Control-Allow-Origin':  allowedOrigins.has(requestOrigin) ? requestOrigin : (env.ALLOWED_ORIGIN || 'https://heyraahi.com'),
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
