@@ -225,9 +225,9 @@ FOR HOTELS:
   "name": "hotel name",
   "confirmationNumber": "confirmation/reservation number or null",
   "tripId": "matching trip id or null",
-  "city": "city name or null",
-  "neighborhood": "district or area within the city (e.g. Ginza, Shinjuku, Gion) or null",
-  "address": "full street address including building number, street, city — exactly as in email, or null",
+  "city": "city name only (e.g. 'Hiroshima', 'Tokyo') — not the hotel name, not 'Japan'",
+  "neighborhood": "district/ward/area within the city (e.g. Ginza, Naka-ku, Gion, Motomachi) or null — look in the address block for ward names ending in -ku or -cho",
+  "address": "full street address — look for lines containing a building number, street/ward name, and postal code. In Japanese addresses look for patterns like '6-36 Motomachi' or 'Naka-ku'. Copy the address exactly as it appears, or null if not present",
   "room": "room type or number if mentioned (e.g. Deluxe King, Room 812) or null",
   "checkIn": "YYYY-MM-DD",
   "checkOut": "YYYY-MM-DD",
@@ -306,6 +306,12 @@ FOR ACTIVITIES / RESTAURANTS / EVENTS:
   "confidence": "high|medium|low"
 }
 
+EXTRACTION TIPS:
+- Hotel address: look for lines with building numbers (e.g. "6-36"), ward/district names (-ku, -cho, -machi), or postal codes (7xx-xxxx in Japan). Address is often near "Property Information", "Hotel Address", "Get Directions", or at the bottom before the legal footer.
+- Neighborhood: often a ward name like "Naka-ku", "Shinjuku", "Ginza" found in or near the address.
+- City: if address says "Hiroshima, Japan" the city is "Hiroshima" — do not include "Japan" or prefecture names.
+- Do NOT leave address null if a street address appears anywhere in the email — scan the full text carefully.
+
 Subject: ${subject}
 
 Email body:
@@ -333,9 +339,14 @@ ${emailText.slice(0, 8000)}`;
   const result = await resp.json();
   const text   = result.content?.[0]?.text || '';
 
+  // Log Claude's full raw response for diagnosing field extraction
+  console.log('Claude raw response:', text.slice(0, 600));
+
   try {
     const match = text.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : null;
+    const parsed = match ? JSON.parse(match[0]) : null;
+    if (parsed) console.log(`Parsed: type=${parsed.type} name="${parsed.name}" city="${parsed.city}" neighborhood="${parsed.neighborhood}" address="${parsed.address}"`);
+    return parsed;
   } catch (e) {
     console.error('Failed to parse Claude JSON:', text);
     return null;
