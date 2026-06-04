@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v54';
+const APP_VERSION = 'v55';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2757,14 +2757,35 @@ function workerBookingToLocal(wb) {
   const category = categoryMap[wb.type] || 'hotel';
 
   // Flights are between places, not in one — always transit
-  // Hotels/activities: match city name → colorKey
+  // Hotels/activities: assign colorKey via date first (most reliable),
+  // then fall back to city name matching.
   let colorKey = 'transit';
-  if (category !== 'flight' && wb.city) {
-    const cityLower = wb.city.toLowerCase();
-    Object.entries(trip.places || {}).forEach(([key, place]) => {
+
+  // ── Strategy 1: match by check-in date ──────────────────────────────────
+  // trip.days already maps each date to its placeKey — this is ground truth.
+  const checkInDate = wb.checkIn || wb.activityDate || wb.transitDate;
+  if (category !== 'flight' && checkInDate) {
+    const matchDay = trip.days.find(d =>
+      d.date === checkInDate && d.placeKey !== 'transit' && d.placeKey !== 'home'
+    );
+    if (matchDay && trip.places[matchDay.placeKey]) colorKey = matchDay.placeKey;
+  }
+
+  // ── Strategy 2: city-name match as fallback ──────────────────────────────
+  // Use exact-first ordering: prefer exact match > name-contains > contains-name
+  if (colorKey === 'transit' && category !== 'flight' && wb.city) {
+    const cityLower = wb.city.toLowerCase().trim();
+    let bestKey = null, bestScore = 99;
+    for (const [key, place] of Object.entries(trip.places || {})) {
+      if (key === 'transit' || key === 'home') continue;
       const pname = (place.name || '').toLowerCase();
-      if (pname.includes(cityLower) || cityLower.includes(pname)) colorKey = key;
-    });
+      const score = pname === cityLower     ? 0   // exact
+        : pname.includes(cityLower)         ? 1   // place name contains city
+        : cityLower.includes(pname)         ? 2   // city contains place name
+        : 99;
+      if (score < bestScore) { bestScore = score; bestKey = key; }
+    }
+    if (bestKey && bestScore < 99) colorKey = bestKey;
   }
 
   // Format cost string
@@ -3148,8 +3169,15 @@ function detectNeighborhood(hotelName) {
     'Gion','Higashiyama','Arashiyama','Fushimi','Kawaramachi','Nishiki',
     // Osaka
     'Dotonbori','Namba','Shinsaibashi','Umeda','Naamba',
-    // Hiroshima / others
-    'Naka','Minami','Nishi','Higashi',
+    // Hiroshima
+    'Naka-ku','Motomachi','Hatchobori','Kamiya-cho','Nagarekawa','Minamimachi',
+    'Ote-machi','Hacchobori',
+    // Kobe
+    'Kitano','Sannomiya','Motomachi','Harborland','Kitanocho',
+    // Miyajima / Itsukushima
+    'Miyajimaguchi',
+    // Generic ward suffixes (match e.g. "Naka-ku" in addresses)
+    'Naka','Minami','Nishi','Higashi','Kita',
   ];
   const lower = hotelName.toLowerCase();
   return hoods.find(h => lower.includes(h.toLowerCase())) || '';
