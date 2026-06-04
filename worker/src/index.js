@@ -24,12 +24,16 @@ export default {
       const email = await parser.parse(message.raw);
 
       const subject   = email.subject || '(no subject)';
-      const emailText = email.text || stripHtml(email.html) || '';
+      const rawText   = email.text || '';
+      const emailText = rawText.trim() ? rawText : stripHtml(email.html) || '';
 
       if (!emailText.trim()) {
         console.log('Empty email body — skipping');
         return;
       }
+
+      // Log first 800 chars of extracted text for debugging parse failures
+      console.log(`Email body preview (${emailText.length} chars):\n${emailText.slice(0, 800)}`);
 
       // Load trips for date-matching context
       const trips = await getTrips(env);
@@ -305,7 +309,7 @@ FOR ACTIVITIES / RESTAURANTS / EVENTS:
 Subject: ${subject}
 
 Email body:
-${emailText.slice(0, 6000)}`;
+${emailText.slice(0, 8000)}`;
 
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -527,14 +531,38 @@ function json(data, status = 200, extraHeaders = {}) {
 
 function stripHtml(html) {
   if (!html) return '';
+
   return html
+    // ── Remove entire head section (CSS, meta, fonts — all noise) ──────────
+    .replace(/<head[\s\S]*?<\/head>/gi, '')
+    // ── Remove non-content blocks ───────────────────────────────────────────
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/\s+/g, ' ')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    // ── Remove base64 images (can be 100kB+, completely useless for parsing) ─
+    .replace(/data:[^"';\s]+;base64,[A-Za-z0-9+/=]+/gi, '')
+    // ── Block-level elements → newline so table cells / divs stay separate ──
+    .replace(/<\/?(div|p|tr|li|h[1-6]|blockquote|section|article|header|footer|main)[^>]*>/gi, '\n')
+    .replace(/<\/?(td|th)[^>]*>/gi, ' | ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    // ── Strip remaining tags ────────────────────────────────────────────────
+    .replace(/<[^>]+>/g, '')
+    // ── Decode HTML entities (broad coverage for hotel email formats) ────────
+    .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&bull;|&#8226;/gi, '•')
+    .replace(/&mdash;|&#8212;/gi, '—')
+    .replace(/&ndash;|&#8211;/gi, '–')
+    .replace(/&thinsp;|&#8201;/gi, ' ')
+    .replace(/&#(\d+);/g, (_, n) => { try { return String.fromCharCode(parseInt(n)); } catch { return ''; } })
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => { try { return String.fromCharCode(parseInt(h, 16)); } catch { return ''; } })
+    // ── Clean up whitespace while preserving meaningful newlines ────────────
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
