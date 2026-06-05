@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v55';
+const APP_VERSION = 'v56';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -204,20 +204,22 @@ function exitEditMode() {
 
 // ─── Remote sync ─────────────────────────────────────────────────────────────
 
-// Debounced push to Cloudflare KV — coalesces rapid edits into one write
+// Debounced push to Cloudflare KV — coalesces rapid edits into one write.
+// Bundles userEdits alongside trip so schedule/wishlist changes sync too.
 let _pushTimer = null;
 function pushTripToWorker() {
   const token = getWriteToken();
   if (!token) return;
   clearTimeout(_pushTimer);
   _pushTimer = setTimeout(() => {
+    const payload = { ...trip, _userEdits: userEdits };
     fetch(`${WORKER_URL}/api/trip/${TRIP_ID}/data`, {
       method: 'PUT',
       headers: {
         'Content-Type':  'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify(trip),
+      body: JSON.stringify(payload),
     }).then(res => {
       if (res.status === 401 || res.status === 403) {
         exitEditMode();
@@ -227,14 +229,18 @@ function pushTripToWorker() {
   }, 3000); // wait 3s of inactivity before pushing
 }
 
-// Fetch full trip data from Cloudflare KV (returns null on failure or 404)
+// Fetch full trip data from Cloudflare KV.
+// Returns { trip, userEdits } or null on failure.
 async function fetchRemoteTrip() {
   try {
     const res = await fetch(`${WORKER_URL}/api/trip/${TRIP_ID}/data`, {
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
-    return await res.json();
+    const data = await res.json();
+    const remoteEdits = data._userEdits || null;
+    delete data._userEdits;
+    return { trip: data, userEdits: remoteEdits };
   } catch {
     return null;
   }
@@ -247,6 +253,8 @@ function loadEdits() {
 
 function saveEdits() {
   localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
+  // Push to KV so schedule/wishlist edits sync across devices (debounced)
+  pushTripToWorker();
 }
 
 // Get schedule + wishlist for a day, with user edits merged
@@ -4105,35 +4113,39 @@ function showUndoToast(msg, undoFn) {
 // ===================================================================
 
 async function init() {
-  // Load trip: prefer localStorage if it was synced within the last 10 minutes
-  // (avoids a KV read on every page load when data is already fresh locally)
-  const local = loadTrip();
-  const localAge = local?.meta?.savedAt
-    ? Date.now() - new Date(local.meta.savedAt).getTime()
-    : Infinity;
-  const skipRemote = localAge < 10 * 60 * 1000; // 10 minutes
+  // ── Stale-while-revalidate loading ───────────────────────────────────────
+  // 1. Render immediately from localStorage (fast, no network wait)
+  // 2. Fetch KV in the background; if it's newer, swap in and re-render
+  //
+  // This means every browser always sees the latest data within one page
+  // load cycle, without blocking the initial render on network latency.
 
-  const remote = skipRemote ? null : await fetchRemoteTrip();
+  const local      = loadTrip();
+  const localEdits = loadEdits();
 
-  if (local && remote) {
-    // Both exist — pick the one saved most recently
-    trip = (remote.meta?.savedAt || '') > (local.meta?.savedAt || '') ? remote : local;
+  // Phase 1 — render from localStorage (or trip.json cold start)
+  if (local) {
+    trip      = local;
+    userEdits = localEdits;
   } else {
-    trip = local || remote || null;
-  }
-
-  if (!trip) {
-    // Cold start — fall back to bundled trip.json
-    try {
-      const res = await fetch('./trip.json');
-      trip = await res.json();
-    } catch {
-      document.body.innerHTML = '<div style="padding:40px;text-align:center"><h2>Failed to load trip data</h2><p>Could not fetch trip.json</p></div>';
-      return;
+    // Cold start — no localStorage, must fetch before first render
+    const remote = await fetchRemoteTrip();
+    if (remote) {
+      trip      = remote.trip;
+      userEdits = remote.userEdits || {};
+    } else {
+      try {
+        const res = await fetch('./trip.json');
+        trip = await res.json();
+      } catch {
+        document.body.innerHTML = '<div style="padding:40px;text-align:center"><h2>Failed to load trip data</h2><p>Could not fetch trip.json</p></div>';
+        return;
+      }
+      userEdits = {};
     }
   }
 
-  saveLocal(); // persist the winner to localStorage (no remote push yet)
+  saveLocal(); // persist initial state to localStorage
 
   // Migrate bookings from old details-array format to structured schema
   if (trip.bookings?.length && trip.bookings[0].details && !trip.bookings[0].category) {
@@ -4388,6 +4400,29 @@ async function init() {
   // Runs silently after the page is live — no await, doesn't block anything.
   backfillPlaceImages();
   backfillPlaceCoords();
+
+  // Phase 2 — background KV check (stale-while-revalidate)
+  // If the remote copy is newer than what we rendered, swap in and re-render.
+  // Skipped if we just did a cold-start fetch (remote already applied above).
+  if (local) {
+    fetchRemoteTrip().then(remote => {
+      if (!remote) return;
+      const localTs  = local?.meta?.savedAt  || '';
+      const remoteTs = remote.trip?.meta?.savedAt || '';
+      if (remoteTs <= localTs) return; // already up to date
+
+      // Remote is newer — apply it and re-render everything.
+      // Remote data already has migrations applied (it was saved post-migration).
+      trip      = remote.trip;
+      userEdits = remote.userEdits || userEdits; // keep local edits if remote has none
+      saveLocal();
+      localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
+      renderPlaces(); renderRouteMap(); renderFilterBar();
+      renderDayList('all'); applyDayDim(getActiveFilter());
+      renderBookingFilters(); renderBookings();
+      showToast('✓ Synced latest changes');
+    });
+  }
 }
 
 // Japan rough bounding box — anything outside this is clearly wrong
