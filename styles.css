@@ -4310,6 +4310,7 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
 .inbox-card {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border-light);
@@ -4404,6 +4405,36 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
 }
 .inbox-conf-low { background: var(--vermillion-light); color: var(--vermillion); }
 .inbox-conf-med { background: var(--gold-light);       color: var(--gold); }
+
+/* View-mode lock prompt — shown inline when Accept is tapped without edit access */
+.inbox-edit-prompt {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--bg-warm);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  animation: fadeUp 0.15s ease both;
+}
+.inbox-edit-unlock {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--vermillion);
+  background: none;
+  color: var(--vermillion);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+.inbox-edit-unlock:hover { background: var(--vermillion-light); }
 
 /* Empty / configure state */
 .inbox-empty {

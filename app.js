@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v61';
+const APP_VERSION = 'v62';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2947,6 +2947,25 @@ function renderInbox(items) {
       const id = btn.dataset.id;
       const wb = pendingBookings.find(b => b.id === id);
       if (!wb) return;
+
+      // View-only mode: accepting without a write token would save locally but
+      // never push to KV — other devices would never see it. Prompt to unlock.
+      if (!isEditMode()) {
+        const card = btn.closest('.inbox-card');
+        // Remove any existing prompt first (idempotent)
+        card.querySelector('.inbox-edit-prompt')?.remove();
+        const prompt = document.createElement('div');
+        prompt.className = 'inbox-edit-prompt';
+        prompt.innerHTML =
+          '🔒 Edit mode required to save &amp; sync&ensp;' +
+          '<button class="inbox-edit-unlock">Unlock</button>';
+        prompt.querySelector('.inbox-edit-unlock').addEventListener('click', () => {
+          openEditPinModal();
+        });
+        card.appendChild(prompt);
+        return;
+      }
+
       btn.textContent = '…';
       btn.disabled = true;
       const ok = await acceptPending(id);
