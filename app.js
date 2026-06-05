@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v57';
+const APP_VERSION = 'v58';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -204,29 +204,39 @@ function exitEditMode() {
 
 // ─── Remote sync ─────────────────────────────────────────────────────────────
 
-// Debounced push to Cloudflare KV — coalesces rapid edits into one write.
-// Bundles userEdits alongside trip so schedule/wishlist changes sync too.
+// ── KV push helpers ───────────────────────────────────────────────────────────
+
+function _doPush(token) {
+  const payload = { ...trip, _userEdits: userEdits };
+  return fetch(`${WORKER_URL}/api/trip/${TRIP_ID}/data`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  }).then(res => {
+    if (res.status === 401 || res.status === 403) {
+      exitEditMode();
+      showToast('Edit access denied — switched to view only');
+    }
+    return res;
+  }).catch(() => {});
+}
+
+// Debounced push — coalesces rapid edits (typing, stepper clicks) into one write
 let _pushTimer = null;
 function pushTripToWorker() {
   const token = getWriteToken();
   if (!token) return;
   clearTimeout(_pushTimer);
-  _pushTimer = setTimeout(() => {
-    const payload = { ...trip, _userEdits: userEdits };
-    fetch(`${WORKER_URL}/api/trip/${TRIP_ID}/data`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    }).then(res => {
-      if (res.status === 401 || res.status === 403) {
-        exitEditMode();
-        showToast('Edit access denied — switched to view only');
-      }
-    }).catch(() => {});
-  }, 3000); // wait 3s of inactivity before pushing
+  _pushTimer = setTimeout(() => _doPush(token), 3000);
+}
+
+// Immediate push — for manual sync and on-load flush. Cancels any pending debounce.
+async function pushTripToWorkerNow() {
+  const token = getWriteToken();
+  if (!token) return;
+  clearTimeout(_pushTimer);
+  _pushTimer = null;
+  return _doPush(token);
 }
 
 // Fetch full trip data from Cloudflare KV.
@@ -252,8 +262,12 @@ function loadEdits() {
 }
 
 function saveEdits() {
+  // Bump savedAt so other devices know userEdits changed
+  if (!trip.meta) trip.meta = {};
+  trip.meta.savedAt = new Date().toISOString();
+  saveLocal();
   localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
-  // Push to KV so schedule/wishlist edits sync across devices (debounced)
+  // Debounced push — userEdits travel with trip in the payload
   pushTripToWorker();
 }
 
@@ -4428,7 +4442,7 @@ async function init() {
   // If in edit mode on load, immediately push local state to KV.
   // This catches edits made before v56 (when saveEdits didn't push to KV).
   if (isEditMode()) {
-    pushTripToWorker();
+    pushTripToWorkerNow();
   }
 }
 
@@ -4457,9 +4471,12 @@ async function syncNow() {
   setSyncStatus('syncing');
   const remote = await fetchRemoteTrip();
   if (!remote) { setSyncStatus('offline'); showToast('Could not reach server'); return; }
-  const localTs  = trip?.meta?.savedAt   || '';
+
+  const localTs  = trip?.meta?.savedAt        || '';
   const remoteTs = remote.trip?.meta?.savedAt || '';
+
   if (remoteTs > localTs) {
+    // Remote is newer — pull it in
     trip      = remote.trip;
     userEdits = remote.userEdits || userEdits;
     saveLocal();
@@ -4469,8 +4486,8 @@ async function syncNow() {
     renderBookingFilters(); renderBookings();
     showToast('✓ Pulled latest changes');
   } else if (isEditMode()) {
-    // Local is newer or equal — push local up
-    pushTripToWorker();
+    // Local is newer or equal — push immediately (not debounced)
+    await pushTripToWorkerNow();
     showToast('✓ Pushed local changes');
   } else {
     showToast('Already up to date');
