@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v56';
+const APP_VERSION = 'v57';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -4405,24 +4405,77 @@ async function init() {
   // If the remote copy is newer than what we rendered, swap in and re-render.
   // Skipped if we just did a cold-start fetch (remote already applied above).
   if (local) {
+    setSyncStatus('syncing');
     fetchRemoteTrip().then(remote => {
-      if (!remote) return;
+      if (!remote) { setSyncStatus('offline'); return; }
       const localTs  = local?.meta?.savedAt  || '';
       const remoteTs = remote.trip?.meta?.savedAt || '';
-      if (remoteTs <= localTs) return; // already up to date
+      if (remoteTs <= localTs) { setSyncStatus('ok', local.meta?.savedAt); return; }
 
       // Remote is newer — apply it and re-render everything.
-      // Remote data already has migrations applied (it was saved post-migration).
       trip      = remote.trip;
-      userEdits = remote.userEdits || userEdits; // keep local edits if remote has none
+      userEdits = remote.userEdits || userEdits;
       saveLocal();
       localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
       renderPlaces(); renderRouteMap(); renderFilterBar();
       renderDayList('all'); applyDayDim(getActiveFilter());
       renderBookingFilters(); renderBookings();
+      setSyncStatus('ok', trip.meta?.savedAt);
       showToast('✓ Synced latest changes');
     });
   }
+
+  // If in edit mode on load, immediately push local state to KV.
+  // This catches edits made before v56 (when saveEdits didn't push to KV).
+  if (isEditMode()) {
+    pushTripToWorker();
+  }
+}
+
+// ── Sync status indicator ─────────────────────────────────────────────────────
+
+function setSyncStatus(state, savedAt) {
+  const el = $('#sync-status');
+  if (!el) return;
+  const states = {
+    syncing: { icon: '↻', text: 'Syncing…',  cls: 'sync-busy'    },
+    ok:      { icon: '✓', text: '',           cls: 'sync-ok'      },
+    offline: { icon: '⚠', text: 'Offline',   cls: 'sync-offline' },
+  };
+  const s = states[state] || states.ok;
+  let label = s.text;
+  if (state === 'ok' && savedAt) {
+    const mins = Math.round((Date.now() - new Date(savedAt).getTime()) / 60000);
+    label = mins < 1 ? 'Just synced' : `Synced ${mins}m ago`;
+  }
+  el.className = `sync-status ${s.cls}`;
+  el.innerHTML = `<span class="sync-icon">${s.icon}</span><span class="sync-label">${label}</span>`;
+  el.title = savedAt ? `Last saved: ${new Date(savedAt).toLocaleTimeString()}` : '';
+}
+
+async function syncNow() {
+  setSyncStatus('syncing');
+  const remote = await fetchRemoteTrip();
+  if (!remote) { setSyncStatus('offline'); showToast('Could not reach server'); return; }
+  const localTs  = trip?.meta?.savedAt   || '';
+  const remoteTs = remote.trip?.meta?.savedAt || '';
+  if (remoteTs > localTs) {
+    trip      = remote.trip;
+    userEdits = remote.userEdits || userEdits;
+    saveLocal();
+    localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
+    renderPlaces(); renderRouteMap(); renderFilterBar();
+    renderDayList('all'); applyDayDim(getActiveFilter());
+    renderBookingFilters(); renderBookings();
+    showToast('✓ Pulled latest changes');
+  } else if (isEditMode()) {
+    // Local is newer or equal — push local up
+    pushTripToWorker();
+    showToast('✓ Pushed local changes');
+  } else {
+    showToast('Already up to date');
+  }
+  setSyncStatus('ok', trip?.meta?.savedAt);
 }
 
 // Japan rough bounding box — anything outside this is clearly wrong

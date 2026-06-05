@@ -30,6 +30,8 @@
         <button class="snav-link ask-trigger" data-section="ask">Ask</button>
       </div>
       <div class="sticky-actions">
+        <button id="sync-btn" class="btn btn-outline btn-xs sync-btn" title="Sync with cloud" onclick="syncNow()">↻ Sync</button>
+        <span id="sync-status" class="sync-status sync-ok" title=""></span>
         <button class="btn btn-outline btn-xs edit-mode-btn" title="Toggle edit mode">🔒 View only</button>
         <button class="btn btn-outline btn-xs export-trigger" title="Export trip data">Export</button>
         <label class="btn btn-outline btn-xs import-label" title="Import trip data">
@@ -312,6 +314,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="app.js?v=56"></script>
+  <script src="app.js?v=57"></script>
 </body>
 </html>

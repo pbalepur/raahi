@@ -5150,3 +5150,35 @@ body.is-readonly .booking-panel-body { pointer-events: none; }
   color: var(--vermillion, #c53d2d);
   margin: 6px 0 0;
 }
+
+/* ================================================
+   SYNC STATUS INDICATOR
+   ================================================ */
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  max-width: 100px;
+  overflow: hidden;
+}
+.sync-icon { flex-shrink: 0; }
+.sync-label { overflow: hidden; text-overflow: ellipsis; }
+
+.sync-ok      { color: var(--ink-muted); }
+.sync-busy    { color: var(--ink-muted); }
+.sync-busy .sync-icon { display: inline-block; animation: spin .8s linear infinite; }
+.sync-offline { color: #f97316; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.sync-btn { opacity: .7; }
+.sync-btn:hover { opacity: 1; }
+
+/* Hide sync label on narrow screens — just show the icon */
+@media (max-width: 768px) {
+  .sync-label { display: none; }
+  .sync-status { max-width: unset; }
+}
