@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v60';
+const APP_VERSION = 'v61';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -4416,40 +4416,51 @@ async function init() {
   backfillPlaceCoords();
 
   // Phase 2 — background KV check (stale-while-revalidate)
-  // If the remote copy is newer than what we rendered, swap in and re-render.
-  // Skipped if we just did a cold-start fetch (remote already applied above).
+  // Pull if remote is newer; push (with fresh timestamp) if local is newer and we're in edit mode.
+  // By doing both decisions inside the same fetch callback we eliminate the race condition
+  // where an unconditional on-load push would overwrite a newer remote copy.
   if (local) {
     setSyncStatus('syncing');
     fetchRemoteTrip().then(remote => {
-      if (!remote) { setSyncStatus('offline'); return; }
-      const localTs  = local?.meta?.savedAt  || '';
-      const remoteTs = remote.trip?.meta?.savedAt || '';
-      if (remoteTs <= localTs) { setSyncStatus('ok', local.meta?.savedAt); return; }
+      if (!remote) {
+        // Can't reach KV — if in edit mode, push anyway so our data isn't lost
+        if (isEditMode()) {
+          if (!trip.meta) trip.meta = {};
+          trip.meta.savedAt = new Date().toISOString();
+          saveLocal();
+          localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
+          pushTripToWorkerNow();
+        }
+        setSyncStatus('offline');
+        return;
+      }
+      const localTs  = local?.meta?.savedAt        || '';
+      const remoteTs = remote.trip?.meta?.savedAt  || '';
 
-      // Remote is newer — apply it and re-render everything.
-      trip      = remote.trip;
-      userEdits = remote.userEdits || userEdits;
-      saveLocal();
-      localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
-      renderPlaces(); renderRouteMap(); renderFilterBar();
-      renderDayList('all'); applyDayDim(getActiveFilter());
-      renderBookingFilters(); renderBookings();
-      setSyncStatus('ok', trip.meta?.savedAt);
-      showToast('✓ Synced latest changes');
+      if (remoteTs > localTs) {
+        // Remote is newer — pull it in and re-render.
+        trip      = remote.trip;
+        userEdits = remote.userEdits || userEdits;
+        saveLocal();
+        localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
+        renderPlaces(); renderRouteMap(); renderFilterBar();
+        renderDayList('all'); applyDayDim(getActiveFilter());
+        renderBookingFilters(); renderBookings();
+        setSyncStatus('ok', trip.meta?.savedAt);
+        showToast('✓ Synced latest changes');
+      } else if (isEditMode()) {
+        // Local is newer (or equal) and we're the editor — push with a fresh timestamp
+        // so other devices know this copy is authoritative.
+        if (!trip.meta) trip.meta = {};
+        trip.meta.savedAt = new Date().toISOString();
+        saveLocal();
+        localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
+        pushTripToWorkerNow();
+        setSyncStatus('ok', trip.meta?.savedAt);
+      } else {
+        setSyncStatus('ok', local.meta?.savedAt);
+      }
     });
-  }
-
-  // If in edit mode on load, immediately push local state to KV.
-  // This catches edits made before v56 (when saveEdits didn't push to KV).
-  // IMPORTANT: bump savedAt to NOW so other devices see this as definitively newer.
-  // Without this, the old localStorage timestamp stays on the KV entry and other
-  // devices skip the update because remoteTs <= their localTs.
-  if (isEditMode()) {
-    if (!trip.meta) trip.meta = {};
-    trip.meta.savedAt = new Date().toISOString();
-    saveLocal();
-    localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
-    pushTripToWorkerNow();
   }
 
   // Auto-sync when the page becomes visible again (switching back from another app on mobile)
