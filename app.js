@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v58';
+const APP_VERSION = 'v59';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -4441,7 +4441,14 @@ async function init() {
 
   // If in edit mode on load, immediately push local state to KV.
   // This catches edits made before v56 (when saveEdits didn't push to KV).
+  // IMPORTANT: bump savedAt to NOW so other devices see this as definitively newer.
+  // Without this, the old localStorage timestamp stays on the KV entry and other
+  // devices skip the update because remoteTs <= their localTs.
   if (isEditMode()) {
+    if (!trip.meta) trip.meta = {};
+    trip.meta.savedAt = new Date().toISOString();
+    saveLocal();
+    localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
     pushTripToWorkerNow();
   }
 }
