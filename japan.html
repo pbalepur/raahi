@@ -188,6 +188,10 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
       <span>Ask</span>
     </button>
+    <button class="mnav-item mnav-sync" onclick="syncNow()" title="Sync with cloud">
+      <span id="mnav-sync-icon" style="font-size:18px;line-height:1">↻</span>
+      <span id="mnav-sync-label">Sync</span>
+    </button>
   </nav>
 
   <!-- Day Panel (slide-in from right) -->
@@ -314,6 +318,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-  <script src="app.js?v=59"></script>
+  <script src="app.js?v=60"></script>
 </body>
 </html>

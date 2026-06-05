@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v59';
+const APP_VERSION = 'v60';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -4451,13 +4451,41 @@ async function init() {
     localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
     pushTripToWorkerNow();
   }
+
+  // Auto-sync when the page becomes visible again (switching back from another app on mobile)
+  // Uses a cooldown so rapid tab switches don't hammer the worker.
+  let _lastVisibilitySync = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const now = Date.now();
+    if (now - _lastVisibilitySync < 30_000) return; // 30s cooldown
+    _lastVisibilitySync = now;
+    setSyncStatus('syncing');
+    fetchRemoteTrip().then(remote => {
+      if (!remote) { setSyncStatus('offline'); return; }
+      const localTs  = trip?.meta?.savedAt        || '';
+      const remoteTs = remote.trip?.meta?.savedAt || '';
+      if (remoteTs > localTs) {
+        trip      = remote.trip;
+        userEdits = remote.userEdits || userEdits;
+        saveLocal();
+        localStorage.setItem(EDITS_KEY, JSON.stringify(userEdits));
+        renderPlaces(); renderRouteMap(); renderFilterBar();
+        renderDayList('all'); applyDayDim(getActiveFilter());
+        renderBookingFilters(); renderBookings();
+        setSyncStatus('ok', trip.meta?.savedAt);
+        showToast('✓ Synced latest changes');
+      } else {
+        setSyncStatus('ok', trip?.meta?.savedAt);
+      }
+    });
+  });
 }
 
 // ── Sync status indicator ─────────────────────────────────────────────────────
 
 function setSyncStatus(state, savedAt) {
   const el = $('#sync-status');
-  if (!el) return;
   const states = {
     syncing: { icon: '↻', text: 'Syncing…',  cls: 'sync-busy'    },
     ok:      { icon: '✓', text: '',           cls: 'sync-ok'      },
@@ -4469,9 +4497,19 @@ function setSyncStatus(state, savedAt) {
     const mins = Math.round((Date.now() - new Date(savedAt).getTime()) / 60000);
     label = mins < 1 ? 'Just synced' : `Synced ${mins}m ago`;
   }
-  el.className = `sync-status ${s.cls}`;
-  el.innerHTML = `<span class="sync-icon">${s.icon}</span><span class="sync-label">${label}</span>`;
-  el.title = savedAt ? `Last saved: ${new Date(savedAt).toLocaleTimeString()}` : '';
+  // Desktop sticky nav indicator
+  if (el) {
+    el.className = `sync-status ${s.cls}`;
+    el.innerHTML = `<span class="sync-icon">${s.icon}</span><span class="sync-label">${label}</span>`;
+    el.title = savedAt ? `Last saved: ${new Date(savedAt).toLocaleTimeString()}` : '';
+  }
+  // Mobile bottom nav sync tab
+  const mnavBtn = $('.mnav-sync');
+  const mnavIcon = $('#mnav-sync-icon');
+  const mnavLabel = $('#mnav-sync-label');
+  if (mnavBtn) mnavBtn.className = `mnav-item mnav-sync ${s.cls}`;
+  if (mnavIcon) mnavIcon.textContent = s.icon;
+  if (mnavLabel) mnavLabel.textContent = state === 'syncing' ? 'Syncing' : 'Sync';
 }
 
 async function syncNow() {

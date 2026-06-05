@@ -2437,8 +2437,14 @@ select {
   -webkit-backdrop-filter: blur(20px) saturate(1.8);
   border-top: 1px solid var(--border);
   padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
 }
+
+/* Mobile sync tab states */
+.mnav-sync { color: var(--ink-muted); }
+.mnav-sync.sync-busy #mnav-sync-icon { display: inline-block; animation: spin .8s linear infinite; }
+.mnav-sync.sync-offline { color: #f97316; }
+.mnav-sync.sync-ok #mnav-sync-label::after { content: '✓'; font-size: 0.5rem; vertical-align: super; margin-left: 1px; }
 
 .mnav-item {
   display: flex;
