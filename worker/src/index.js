@@ -23,9 +23,31 @@ export default {
       const parser = new PostalMime();
       const email = await parser.parse(message.raw);
 
-      const subject   = email.subject || '(no subject)';
-      const rawText   = email.text || '';
-      const emailText = rawText.trim() ? rawText : stripHtml(email.html) || '';
+      const subject = email.subject || '(no subject)';
+      let rawText   = email.text  || '';
+      let htmlBody  = email.html  || '';
+
+      // iPhone Yahoo Mail (and some other mobile clients) forward emails by attaching
+      // the original as a nested message/rfc822 MIME part rather than quoting it inline.
+      // The outer envelope has almost no text, so we must parse the nested part separately.
+      const nestedMessages = (email.attachments || []).filter(a =>
+        a.mimeType === 'message/rfc822' || a.mimeType === 'message/global'
+      );
+      if (nestedMessages.length > 0) {
+        console.log(`Found ${nestedMessages.length} nested RFC822 attachment(s) — parsing for forwarded content`);
+        for (const att of nestedMessages) {
+          try {
+            const nestedParser = new PostalMime();
+            const nested = await nestedParser.parse(att.content);
+            if (nested.text?.trim())  rawText  = (rawText + '\n\n' + nested.text).trim();
+            if (nested.html?.trim() && !rawText.trim()) htmlBody = nested.html;
+          } catch (e) {
+            console.warn('Failed to parse nested RFC822:', e.message);
+          }
+        }
+      }
+
+      const emailText = rawText.trim() ? rawText : stripHtml(htmlBody) || '';
 
       if (!emailText.trim()) {
         console.log('Empty email body — skipping');
@@ -33,7 +55,7 @@ export default {
       }
 
       // Log first 800 chars of extracted text for debugging parse failures
-      console.log(`Email body preview (${emailText.length} chars):\n${emailText.slice(0, 800)}`);
+      console.log(`Email body preview (${emailText.length} chars, attachments: ${email.attachments?.length || 0}):\n${emailText.slice(0, 800)}`);
 
       // Load trips for date-matching context
       const trips = await getTrips(env);

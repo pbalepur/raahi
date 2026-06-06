@@ -2472,6 +2472,26 @@ select {
   flex-shrink: 0;
 }
 
+/* Icon wrapper for badge dot positioning on mobile nav */
+.mnav-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Red dot badge on mobile nav Bookings icon — no number, just a dot */
+.mnav-inbox-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vermillion);
+  border: 1.5px solid var(--bg);
+}
+
 /* ===== ANIMATIONS ===== */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }

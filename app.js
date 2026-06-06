@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v62';
+const APP_VERSION = 'v63';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -193,6 +193,8 @@ function enterEditMode(token) {
   applyEditModeClass();
   renderEditModeBtn();
   showToast('Edit mode on');
+  // Re-render inbox so any "🔒 edit mode required" prompts disappear
+  renderInbox(pendingBookings);
 }
 
 function exitEditMode() {
@@ -2863,10 +2865,15 @@ function workerBookingToLocal(wb) {
 let pendingBookings = [];
 
 function updateInboxBadge(count) {
+  // Bookings-section toolbar badge (desktop, inside section)
   const badge = $('#inbox-badge');
-  if (!badge) return;
-  badge.textContent = count;
-  badge.style.display = count > 0 ? 'inline-flex' : 'none';
+  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline-flex' : 'none'; }
+  // Sticky nav "Bookings" link badge
+  const snavBadge = $('#snav-inbox-badge');
+  if (snavBadge) { snavBadge.textContent = count; snavBadge.style.display = count > 0 ? 'inline-flex' : 'none'; }
+  // Mobile bottom nav Bookings tab dot badge
+  const mnavBadge = $('#mnav-inbox-badge');
+  if (mnavBadge) { mnavBadge.style.display = count > 0 ? 'block' : 'none'; }
 }
 
 const INBOX_ICONS = {
