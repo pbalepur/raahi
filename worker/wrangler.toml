@@ -1,6 +1,10 @@
 name            = "raahi-worker"
 main            = "src/index.js"
 compatibility_date = "2025-01-01"
+
+# Cron: daily at 2pm UTC (9am ET / 6am PT) — worker decides weekly vs daily
+[triggers]
+crons = ["0 14 * * *"]
 account_id      = "c8dbc520e7abfbf9706d2a637eb2af81"
 
 # KV namespace — fill in `id` after running: wrangler kv namespace create RAAHI_KV

@@ -117,6 +117,8 @@ export default {
       );
 
       console.log(`Stored pending booking [${id}]: ${booking.type} — ${booking.name}`);
+      // Remember owner email for digest notifications
+      if (message.from) await env.RAAHI_KV.put('owner_email', message.from);
 
       // Send Web Push notification to subscribed devices
       ctx.waitUntil(sendPushNotifications(env));
@@ -135,6 +137,11 @@ export default {
   },
 
   // ─── HTTP / REST API ───────────────────────────────────────────────────────
+
+  // ─── Cron: daily digest of pending to-dos ──────────────────────────────────
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(sendTodoDigest(env));
+  },
 
   async fetch(request, env) {
     const url  = new URL(request.url);
@@ -227,6 +234,12 @@ export default {
         const filtered = subs.filter(s => s.endpoint !== body?.endpoint);
         await env.RAAHI_KV.put('pushsubs', JSON.stringify(filtered));
         return json({ ok: true }, 200, cors);
+      }
+
+      // GET /api/push/message  (service worker fetches this to determine what to display)
+      if (path === '/api/push/message' && request.method === 'GET') {
+        const msg = await env.RAAHI_KV.get('push_message_latest', 'json');
+        return json(msg || null, 200, cors);
       }
 
       // GET /api/trip/:id/data  (fetch full trip data)
@@ -495,10 +508,18 @@ async function getPushSubscriptions(env) {
   return (await env.RAAHI_KV.get('pushsubs', 'json')) || [];
 }
 
-async function sendPushNotifications(env) {
+async function sendPushNotifications(env, title, body) {
   if (!env.VAPID_PRIVATE_KEY_JWK || !env.VAPID_PUBLIC_KEY) return;
   const subs = await getPushSubscriptions(env);
   if (!subs.length) return;
+
+  // Store notification content in KV so the service worker can fetch it
+  if (title || body) {
+    await env.RAAHI_KV.put('push_message_latest',
+      JSON.stringify({ title: title || '📬 Raahi', body: body || '', ts: Date.now() }),
+      { expirationTtl: 86400 }
+    );
+  }
 
   const results = await Promise.allSettled(subs.map(sub => sendPushToSub(sub, env)));
 
@@ -634,4 +655,75 @@ function stripHtml(html) {
     .replace(/\n[ \t]+/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+// ─── Todo digest (cron) ───────────────────────────────────────────────────────
+
+async function sendTodoDigest(env) {
+  const TRIP_ID = 'japan-2026';
+  const tripData = await env.RAAHI_KV.get(`tripdata:${TRIP_ID}`, 'json');
+  if (!tripData) return;
+
+  const todos = (tripData.bookings || []).filter(b => b.category === 'todo' && !b.completed);
+  if (!todos.length) return;
+
+  // Trip start date
+  const firstDay = tripData.days?.[0]?.date;
+  if (!firstDay) return;
+  const tripStart  = new Date(firstDay + 'T00:00:00Z');
+  const today      = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const daysUntil  = Math.ceil((tripStart - today) / 86400000);
+  if (daysUntil < 0) return; // trip already started
+
+  // Send weekly (Monday) until 7 days out, then daily
+  const isMonday = today.getUTCDay() === 1;
+  if (daysUntil > 7 && !isMonday) return;
+
+  // Group todos
+  const todayStr   = today.toISOString().slice(0, 10);
+  const weekStr    = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const overdue    = todos.filter(t => t.bookByDate && t.bookByDate < todayStr);
+  const thisWeek   = todos.filter(t => t.bookByDate && t.bookByDate >= todayStr && t.bookByDate <= weekStr);
+  const later      = todos.filter(t => !t.bookByDate || t.bookByDate > weekStr);
+
+  const fmtDate = d => d ? new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+  const placeMap = {};
+  Object.entries(tripData.places || {}).forEach(([k, v]) => { placeMap[k] = v.name || k; });
+
+  const renderGroup = (label, items) => {
+    if (!items.length) return '';
+    return `\n${label}\n` + items.map(t => {
+      const place = t.colorKey ? `[${placeMap[t.colorKey] || t.colorKey}] ` : '';
+      const due   = t.bookByDate ? `  →  Book by ${fmtDate(t.bookByDate)}` : '';
+      return `  • ${place}${t.title}${due}`;
+    }).join('\n');
+  };
+
+  const freq    = daysUntil <= 7 ? 'Daily reminder' : 'Weekly reminder';
+  const subject = `Raahi ${freq}: ${todos.length} booking${todos.length > 1 ? 's' : ''} pending — Japan in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`;
+
+  const body = [
+    `Japan 2026 — ${todos.length} thing${todos.length > 1 ? 's' : ''} left to book (${daysUntil} days away)\n`,
+    renderGroup('⚠️  OVERDUE — book immediately', overdue),
+    renderGroup('⏰  THIS WEEK', thisWeek),
+    renderGroup('📋  UPCOMING', later),
+    '\n—\nView your trip at https://heyraahi.com',
+  ].filter(Boolean).join('\n');
+
+  // Send push notification (brief)
+  const pushTitle = `✈️ Japan in ${daysUntil} days — ${todos.length} still to book`;
+  const pushBody  = todos.slice(0, 2).map(t => t.title).join(', ') + (todos.length > 2 ? ` +${todos.length - 2} more` : '');
+  await sendPushNotifications(env, pushTitle, pushBody);
+
+  // Send email digest to owner
+  const ownerEmail = await env.RAAHI_KV.get('owner_email') || 'pbalepur@yahoo.com';
+  try {
+    const msg = new EmailMessage('bookings@heyraahi.com', ownerEmail, subject);
+    msg.setContent('text/plain', body);
+    await env.SEND_EMAIL.send(msg);
+    console.log(`Digest sent to ${ownerEmail}: ${todos.length} pending todos, ${daysUntil} days until trip`);
+  } catch (e) {
+    console.error('Digest email failed:', e.message);
+  }
 }

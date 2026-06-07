@@ -10,28 +10,36 @@ const APP_URL    = 'https://heyraahi.com/japan.html#bookings';
 
 self.addEventListener('push', event => {
   event.waitUntil((async () => {
-    let body = 'New booking received — tap to review';
+    let title = '📬 Raahi';
+    let body  = 'Tap to open your trip';
+    let tag   = 'raahi-inbox';
 
-    // Fetch latest pending bookings so we can show the booking name
     try {
-      const res = await fetch(`${WORKER_URL}/api/pending`);
-      if (res.ok) {
-        const bookings = await res.json();
-        if (bookings.length === 1) {
-          body = `${bookings[0].name || 'New booking'} — tap to review`;
-        } else if (bookings.length > 1) {
-          body = `${bookings.length} new bookings — tap to review`;
+      // Check for a stored message first (digest notifications from cron)
+      const msgRes = await fetch(`${WORKER_URL}/api/push/message`);
+      if (msgRes.ok) {
+        const msg = await msgRes.json();
+        if (msg?.title) { title = msg.title; body = msg.body || body; tag = 'raahi-digest'; }
+      }
+      // If no stored message, fetch pending bookings for inbox notification
+      if (tag === 'raahi-inbox') {
+        const res = await fetch(`${WORKER_URL}/api/pending`);
+        if (res.ok) {
+          const bookings = await res.json();
+          if (bookings.length === 1)      body = `${bookings[0].name || 'New booking'} — tap to review`;
+          else if (bookings.length > 1)   body = `${bookings.length} new bookings — tap to review`;
+          else                            body = 'New booking received — tap to review';
         }
       }
     } catch { /* show generic message */ }
 
-    return self.registration.showNotification('📬 Raahi', {
+    return self.registration.showNotification(title, {
       body,
-      icon:      '/icon-192.png',
-      badge:     '/favicon-32.png',
-      tag:       'raahi-inbox',   // replaces previous notification rather than stacking
-      renotify:  true,
-      data:      { url: APP_URL },
+      icon:     '/icon-192.png',
+      badge:    '/favicon-32.png',
+      tag,
+      renotify: true,
+      data:     { url: APP_URL },
     });
   })());
 });

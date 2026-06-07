@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v64';
+const APP_VERSION = 'v65';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -1545,6 +1545,32 @@ function openDayPanel(dayIdx) {
     travelEl.style.display = 'none';
   }
 
+  // Logistics section — pending to-dos for this day's place
+  const logisticsEl = panel.querySelector('.panel-logistics');
+  const dayTodos = todosForDay(dayIdx);
+  if (dayTodos.length > 0) {
+    logisticsEl.innerHTML = `
+      <h4 class="panel-label">To Book</h4>
+      <div class="logistics-list">
+        ${dayTodos.map(b => {
+          const idx = trip.bookings.indexOf(b);
+          const icon = TODO_TYPE_ICONS[b.bookingType] || '📋';
+          const today2 = new Date().toISOString().slice(0, 10);
+          const overdue = b.bookByDate && b.bookByDate < today2;
+          return `
+            <div class="logistics-chip${overdue ? ' logistics-overdue' : ''}">
+              <span class="logistics-icon">${icon}</span>
+              <span class="logistics-title">${escHtml(b.title)}</span>
+              ${b.bookByDate ? `<span class="logistics-due${overdue ? ' logistics-due-overdue' : ''}">${overdue ? '⚠️ ' : ''}${fmtBookingDate(b.bookByDate)}</span>` : ''}
+              <button class="logistics-jump" onclick="scrollToTodo(${idx})" title="View in Bookings">→</button>
+            </div>`;
+        }).join('')}
+      </div>`;
+    logisticsEl.style.display = '';
+  } else {
+    logisticsEl.style.display = 'none';
+  }
+
   // Schedule section
   const schedEl = panel.querySelector('.panel-schedule');
   if (sortedSchedule.length > 0) {
@@ -2387,11 +2413,32 @@ function fmtTime12(timeStr) {
 }
 
 function getBookingSortDate(b) {
+  if (b.category === 'todo')     return b.bookByDate || '0001'; // todos float to top when unsorted
   if (b.category === 'hotel')    return b.checkIn || '9999';
   if (b.category === 'flight')   return b.outbound?.departDate || '9999';
   if (b.category === 'rail')     return b.transitDate || b.legs?.[0]?.date || '9999';
   if (b.category === 'activity') return b.activityDate || '9999';
   return '9999';
+}
+
+// ── Todo helpers ──────────────────────────────────────────────────────────────
+const TODO_TYPE_ICONS = {
+  transport: '🚆', hotel: '🏨', experience: '🎌', document: '📄', other: '📋',
+};
+const TODO_TYPE_LABELS = {
+  transport: 'Transport', hotel: 'Hotel', experience: 'Experience',
+  document: 'Document', other: 'Other',
+};
+
+function todosForDay(dayIdx) {
+  const day = trip.days[dayIdx];
+  if (!day) return [];
+  return trip.bookings.filter(b => {
+    if (b.category !== 'todo' || b.completed) return false;
+    if (b.colorKey && b.colorKey === day.placeKey) return true;
+    if (b.dayFrom != null && b.dayTo != null) return dayIdx >= b.dayFrom && dayIdx <= b.dayTo;
+    return false;
+  });
 }
 
 function sortBookings() {
@@ -2523,12 +2570,14 @@ function renderBookingFilters() {
   const bar = $('#booking-filters');
   if (!bar) return;
 
+  const pendingTodoCount = trip.bookings.filter(b => b.category === 'todo' && !b.completed).length;
   const cats = [
     { key: 'all',      label: 'All' },
     { key: 'hotel',    label: 'Hotels' },
     { key: 'flight',   label: 'Flights' },
     { key: 'rail',     label: 'Rail' },
     { key: 'activity', label: 'Activities' },
+    { key: 'todo',     label: pendingTodoCount > 0 ? `To Book (${pendingTodoCount})` : 'To Book' },
   ];
 
   // Place dropdown — only show if 2+ places have bookings
@@ -2638,8 +2687,11 @@ function renderBookings() {
 
   sortBookings();
   renderBookingConflictBanner();
+  renderTodos();
 
-  let filtered = trip.bookings;
+  // Todos are rendered separately above; exclude them from the confirmed grid
+  let filtered = trip.bookings.filter(b => b.category !== 'todo');
+  if (bookingFilter === 'todo') { container.innerHTML = ''; return; }
   if (bookingFilter !== 'all') filtered = filtered.filter(b => b.category === bookingFilter);
   if (bookingPlaceFilter !== 'all') filtered = filtered.filter(b => b.colorKey === bookingPlaceFilter);
 
@@ -2688,6 +2740,162 @@ function renderBookings() {
       openBookingEditor(parseInt(row.dataset.idx));
     });
   });
+}
+
+// ─── To Book (todo) section ───────────────────────────────────────────────────
+
+function renderTodos() {
+  const container = $('#todo-section');
+  if (!container) return;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const weekOut = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const allTodos = trip.bookings.filter(b => b.category === 'todo');
+  const pending = allTodos.filter(b => !b.completed);
+  const done = allTodos.filter(b => b.completed);
+
+  if (allTodos.length === 0 && !isEditMode()) { container.innerHTML = ''; return; }
+
+  const groups = [
+    { key: 'overdue', label: '⚠️ Overdue', items: pending.filter(b => b.bookByDate && b.bookByDate < today) },
+    { key: 'soon',    label: '⏰ This week', items: pending.filter(b => b.bookByDate && b.bookByDate >= today && b.bookByDate <= weekOut) },
+    { key: 'later',   label: '📋 To Book',  items: pending.filter(b => !b.bookByDate || b.bookByDate > weekOut) },
+  ].filter(g => g.items.length > 0);
+
+  const renderItem = (b) => {
+    const idx = trip.bookings.indexOf(b);
+    const icon = TODO_TYPE_ICONS[b.bookingType] || '📋';
+    const place = trip.places[b.colorKey];
+    const overdue = b.bookByDate && b.bookByDate < today;
+    const dateLabel = b.bookByDate
+      ? `<span class="todo-due${overdue ? ' todo-due-overdue' : ''}">Book by ${fmtBookingDate(b.bookByDate)}</span>`
+      : '';
+    const placeChip = place
+      ? `<span class="todo-place" style="background:${place.bg};color:${place.color}">${place.emoji ? place.emoji + ' ' : ''}${escHtml(place.name)}</span>`
+      : '';
+    const urlLink = b.url
+      ? `<a href="${escHtml(b.url)}" target="_blank" rel="noreferrer" class="todo-url-link" onclick="event.stopPropagation()" title="Open booking site">${ICONS.arrow}</a>`
+      : '';
+    return `
+      <div class="todo-item${b.completed ? ' todo-done' : ''}" data-idx="${idx}">
+        <button class="todo-check${b.completed ? ' todo-check-done' : ''}" data-idx="${idx}" title="${b.completed ? 'Mark undone' : 'Mark done'}">
+          ${b.completed ? '✓' : ''}
+        </button>
+        <div class="todo-body">
+          <div class="todo-title">${icon} ${escHtml(b.title)}</div>
+          <div class="todo-meta">${placeChip}${dateLabel}${b.notes ? `<span class="todo-notes">${escHtml(b.notes)}</span>` : ''}</div>
+        </div>
+        ${urlLink}
+        ${isEditMode() ? `<button class="todo-edit-btn" data-idx="${idx}" title="Edit">✎</button>` : ''}
+      </div>`;
+  };
+
+  const doneSection = done.length > 0 ? `
+    <details class="todo-done-group">
+      <summary>${done.length} done</summary>
+      ${done.map(renderItem).join('')}
+    </details>` : '';
+
+  container.innerHTML = `
+    <div class="todo-wrap">
+      <div class="todo-header">
+        <span class="todo-title-main">📋 To Book${pending.length > 0 ? ` <span class="todo-count">${pending.length}</span>` : ''}</span>
+        ${isEditMode() ? `<button class="btn btn-primary btn-xs todo-add-btn">+ Add</button>` : ''}
+      </div>
+      <div class="todo-list">
+        ${groups.length > 0 ? groups.map(g => `
+          <div class="todo-group">
+            <div class="todo-group-label">${g.label}</div>
+            ${g.items.map(renderItem).join('')}
+          </div>`).join('') : (isEditMode() ? `<p class="todo-empty">Nothing to book yet — add your first item</p>` : '')}
+        ${doneSection}
+      </div>
+    </div>`;
+
+  // Checkbox toggle
+  container.querySelectorAll('.todo-check').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!isEditMode()) return;
+      const idx = parseInt(btn.dataset.idx);
+      const b = trip.bookings[idx];
+      if (!b) return;
+      const wasDone = b.completed;
+      b.completed = !wasDone;
+      b.completedAt = b.completed ? new Date().toISOString() : null;
+      saveTrip();
+      renderTodos();
+      if (b.completed) {
+        showUndoToast(`"${b.title}" marked done`, () => {
+          b.completed = false; b.completedAt = null;
+          saveTrip(); renderTodos();
+        });
+      }
+    });
+  });
+
+  // Edit button
+  container.querySelectorAll('.todo-edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openBookingEditor(parseInt(btn.dataset.idx));
+    });
+  });
+
+  // Add button
+  container.querySelector('.todo-add-btn')?.addEventListener('click', () => {
+    openNewBookingForm('todo');
+  });
+}
+
+function scrollToTodo(idx) {
+  // Navigate to bookings section, then highlight the todo
+  const section = document.querySelector('#bookings');
+  if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => {
+    const el = document.querySelector(`.todo-item[data-idx="${idx}"]`);
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('todo-highlight'); setTimeout(() => el.classList.remove('todo-highlight'), 1500); }
+  }, 400);
+}
+
+function buildTodoFields(b) {
+  const today = new Date().toISOString().slice(0, 10);
+  const typeOpt = (val, label) =>
+    `<option value="${val}"${(b.bookingType || 'transport') === val ? ' selected' : ''}>${label}</option>`;
+  return `
+    <div class="bpf-field">
+      <label>What needs to be booked? <span class="bpf-req">*</span></label>
+      <input type="text" name="title" value="${escHtml(b.title || '')}" required
+             placeholder="e.g. Ferry to Itsukushima, JR Pass, Car rental" autocomplete="off">
+    </div>
+    <div class="bpf-row">
+      <div class="bpf-field">
+        <label>Type</label>
+        <select name="bookingType" class="bpf-select">
+          ${typeOpt('transport','🚆 Transport')}
+          ${typeOpt('hotel','🏨 Hotel')}
+          ${typeOpt('experience','🎌 Experience')}
+          ${typeOpt('document','📄 Document')}
+          ${typeOpt('other','📋 Other')}
+        </select>
+      </div>
+      <div class="bpf-field">
+        <label>Place</label>
+        <select name="colorKey" class="bpf-select">${placePickerHtml(b.colorKey, false)}</select>
+      </div>
+    </div>
+    <div class="bpf-field">
+      <label>Book by date</label>
+      <input type="date" name="bookByDate" value="${b.bookByDate || ''}" min="${today}">
+    </div>
+    <div class="bpf-field">
+      <label>Booking site (optional)</label>
+      <input type="url" name="url" value="${escHtml(b.url || '')}" placeholder="https://...">
+    </div>
+    <div class="bpf-field">
+      <label>Notes</label>
+      <textarea name="notes" rows="2" placeholder="Seat preference, lead time, cancellation policy...">${escHtml(b.notes || '')}</textarea>
+    </div>`;
 }
 
 // ===================================================================
@@ -2977,12 +3185,32 @@ function renderInbox(items) {
       btn.disabled = true;
       const ok = await acceptPending(id);
       if (ok) {
-        trip.bookings.push(workerBookingToLocal(wb));
+        const newBooking = workerBookingToLocal(wb);
+        trip.bookings.push(newBooking);
         saveTrip();
         pendingBookings = pendingBookings.filter(b => b.id !== id);
         renderInbox(pendingBookings);
         renderBookings();
         updateInboxBadge(pendingBookings.length);
+        // Auto-match: find a to-do that this booking likely fulfills
+        const typeToBookingType = { hotel:'hotel', flight:'flight', rail:'transport', activity:'experience' };
+        const matchingTodos = trip.bookings.filter(b => {
+          if (b.category !== 'todo' || b.completed) return false;
+          if (b.colorKey && b.colorKey !== newBooking.colorKey && newBooking.colorKey !== 'transit') return false;
+          const btype = typeToBookingType[newBooking.category];
+          if (b.bookingType && btype && b.bookingType !== btype) return false;
+          return true;
+        });
+        if (matchingTodos.length === 1) {
+          const todo = matchingTodos[0];
+          showActionToast(`Fulfills "${todo.title}"?`, 'Mark done', () => {
+            todo.completed = true;
+            todo.completedAt = new Date().toISOString();
+            saveTrip();
+            renderTodos();
+            renderBookingFilters();
+          });
+        }
       } else {
         btn.textContent = '✓ Add';
         btn.disabled = false;
@@ -3472,6 +3700,9 @@ function readFormIntoBooking(fd, booking) {
     booking.transitTime = fd.get('transitTime') || '';
     booking.transitFrom = fd.get('transitFrom')?.toString().trim() || '';
     booking.transitTo = fd.get('transitTo')?.toString().trim() || '';
+  } else if (booking.category === 'todo') {
+    booking.bookingType = fd.get('bookingType')?.toString() || 'other';
+    booking.bookByDate  = fd.get('bookByDate') || '';
   }
 }
 
@@ -3485,9 +3716,10 @@ function openBookingEditor(idx) {
   if (booking.category === 'hotel')        fields = buildHotelFields(booking);
   else if (booking.category === 'flight')  fields = buildFlightFields(booking);
   else if (booking.category === 'activity') fields = buildActivityFields(booking);
+  else if (booking.category === 'todo')    fields = buildTodoFields(booking);
   else                                      fields = buildTransitFields(booking);
 
-  const catLabel = { hotel:'Hotel', flight:'Flight', rail:'Rail / Bus', activity:'Activity' }[booking.category] || 'Booking';
+  const catLabel = { hotel:'Hotel', flight:'Flight', rail:'Rail / Bus', activity:'Activity', todo:'To Book' }[booking.category] || 'Booking';
 
   openBookingPanel(`Edit ${catLabel}`, fields,
     (fd) => {
@@ -3535,6 +3767,7 @@ function openNewBookingForm(category) {
         <button type="button" class="bpf-type-btn" data-cat="flight">${ICONS.plane}<span>Flight</span></button>
         <button type="button" class="bpf-type-btn" data-cat="rail">${ICONS.train}<span>Rail / Bus</span></button>
         <button type="button" class="bpf-type-btn" data-cat="activity"><span style="font-size:1.4rem">🎟️</span><span>Activity</span></button>
+        <button type="button" class="bpf-type-btn" data-cat="todo"><span style="font-size:1.4rem">📋</span><span>To Book</span></button>
       </div>`;
     openBookingPanel('New Booking', pickerHtml, () => {}, null);
     // Prevent form submit on type picker (no actual form fields yet)
@@ -3550,7 +3783,7 @@ function openNewBookingForm(category) {
     return;
   }
 
-  const iconMap = { flight:'plane', rail:'train', activity:'calendar', hotel:'hotel' };
+  const iconMap = { flight:'plane', rail:'train', activity:'calendar', hotel:'hotel', todo:'checklist' };
   const blank = {
     category,
     icon: iconMap[category] || 'hotel',
@@ -3560,14 +3793,16 @@ function openNewBookingForm(category) {
   if (category === 'flight')   { blank.outbound = {}; blank.inbound = {}; }
   if (category === 'rail')     { blank.transitDate = ''; blank.transitTime = ''; blank.transitFrom = ''; blank.transitTo = ''; }
   if (category === 'activity') { blank.activityDate = ''; blank.activityTime = ''; blank.address = ''; }
+  if (category === 'todo')     { blank.bookingType = 'transport'; blank.bookByDate = ''; blank.completed = false; blank.completedAt = null; }
 
   let fields = '';
   if (category === 'hotel')        fields = buildHotelFields(blank);
   else if (category === 'flight')  fields = buildFlightFields(blank);
   else if (category === 'activity') fields = buildActivityFields(blank);
+  else if (category === 'todo')    fields = buildTodoFields(blank);
   else                              fields = buildTransitFields(blank);
 
-  const catLabel = { hotel:'Hotel', flight:'Flight', rail:'Rail / Bus', activity:'Activity' }[category] || category;
+  const catLabel = { hotel:'Hotel', flight:'Flight', rail:'Rail / Bus', activity:'Activity', todo:'To Book' }[category] || category;
 
   openBookingPanel(`New ${catLabel}`, fields,
     (fd) => {
@@ -4146,6 +4381,27 @@ function showUndoToast(msg, undoFn) {
       setTimeout(() => toast.remove(), 300);
     }
   }, 5000);
+}
+
+// Toast with a single action button (e.g. "Mark done") — stays for 8s
+function showActionToast(msg, actionLabel, actionFn) {
+  const existing = $('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-undo';
+  toast.innerHTML = `<span>${escHtml(msg)}</span><button class="toast-undo-btn">${escHtml(actionLabel)}</button>`;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  let acted = false;
+  toast.querySelector('.toast-undo-btn').addEventListener('click', () => {
+    acted = true;
+    actionFn();
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  });
+  setTimeout(() => {
+    if (!acted) { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }
+  }, 8000);
 }
 
 // ===================================================================
