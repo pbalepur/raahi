@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v69';
+const APP_VERSION = 'v70';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
