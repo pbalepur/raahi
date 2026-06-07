@@ -1927,6 +1927,12 @@ img { display: block; max-width: 100%; }
   margin: 0 0 16px;
   text-align: center;
 }
+.bpf-hint-inline {
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--ink-muted);
+  margin-left: 4px;
+}
 
 /* ================================================
    V4: BOOKING TYPE PICKER GRID
@@ -4377,10 +4383,16 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
   padding: 1px 7px;
   border-radius: 999px;
 }
+.todo-activity-date {
+  font-size: 0.72rem;
+  color: var(--ink);
+  font-weight: 600;
+}
 .todo-due {
   font-size: 0.72rem;
   color: var(--ink-muted);
 }
+.todo-due::before { content: '· '; }
 .todo-due-overdue { color: var(--vermillion); font-weight: 600; }
 .todo-notes {
   font-size: 0.72rem;

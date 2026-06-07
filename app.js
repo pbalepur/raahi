@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v65';
+const APP_VERSION = 'v66';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2435,8 +2435,10 @@ function todosForDay(dayIdx) {
   if (!day) return [];
   return trip.bookings.filter(b => {
     if (b.category !== 'todo' || b.completed) return false;
-    if (b.colorKey && b.colorKey === day.placeKey) return true;
-    if (b.dayFrom != null && b.dayTo != null) return dayIdx >= b.dayFrom && dayIdx <= b.dayTo;
+    // Primary: match by activity date (when the thing actually happens)
+    if (b.activityDate && b.activityDate === day.date) return true;
+    // Fallback: match by place key (for todos without a specific date)
+    if (!b.activityDate && b.colorKey && b.colorKey === day.placeKey) return true;
     return false;
   });
 }
@@ -2767,6 +2769,9 @@ function renderTodos() {
     const icon = TODO_TYPE_ICONS[b.bookingType] || '📋';
     const place = trip.places[b.colorKey];
     const overdue = b.bookByDate && b.bookByDate < today;
+    const actLabel = b.activityDate
+      ? `<span class="todo-activity-date">${fmtBookingDate(b.activityDate)}</span>`
+      : '';
     const dateLabel = b.bookByDate
       ? `<span class="todo-due${overdue ? ' todo-due-overdue' : ''}">Book by ${fmtBookingDate(b.bookByDate)}</span>`
       : '';
@@ -2783,7 +2788,7 @@ function renderTodos() {
         </button>
         <div class="todo-body">
           <div class="todo-title">${icon} ${escHtml(b.title)}</div>
-          <div class="todo-meta">${placeChip}${dateLabel}${b.notes ? `<span class="todo-notes">${escHtml(b.notes)}</span>` : ''}</div>
+          <div class="todo-meta">${placeChip}${actLabel}${dateLabel}${b.notes ? `<span class="todo-notes">${escHtml(b.notes)}</span>` : ''}</div>
         </div>
         ${urlLink}
         ${isEditMode() ? `<button class="todo-edit-btn" data-idx="${idx}" title="Edit">✎</button>` : ''}
@@ -2884,9 +2889,15 @@ function buildTodoFields(b) {
         <select name="colorKey" class="bpf-select">${placePickerHtml(b.colorKey, false)}</select>
       </div>
     </div>
-    <div class="bpf-field">
-      <label>Book by date</label>
-      <input type="date" name="bookByDate" value="${b.bookByDate || ''}" min="${today}">
+    <div class="bpf-row">
+      <div class="bpf-field">
+        <label>Activity date <span class="bpf-hint-inline">when it happens</span></label>
+        <input type="date" name="activityDate" value="${b.activityDate || ''}">
+      </div>
+      <div class="bpf-field">
+        <label>Book by <span class="bpf-hint-inline">deadline</span></label>
+        <input type="date" name="bookByDate" value="${b.bookByDate || ''}">
+      </div>
     </div>
     <div class="bpf-field">
       <label>Booking site (optional)</label>
@@ -3701,8 +3712,9 @@ function readFormIntoBooking(fd, booking) {
     booking.transitFrom = fd.get('transitFrom')?.toString().trim() || '';
     booking.transitTo = fd.get('transitTo')?.toString().trim() || '';
   } else if (booking.category === 'todo') {
-    booking.bookingType = fd.get('bookingType')?.toString() || 'other';
-    booking.bookByDate  = fd.get('bookByDate') || '';
+    booking.bookingType  = fd.get('bookingType')?.toString() || 'other';
+    booking.activityDate = fd.get('activityDate') || '';
+    booking.bookByDate   = fd.get('bookByDate')   || '';
   }
 }
 
@@ -3793,7 +3805,7 @@ function openNewBookingForm(category) {
   if (category === 'flight')   { blank.outbound = {}; blank.inbound = {}; }
   if (category === 'rail')     { blank.transitDate = ''; blank.transitTime = ''; blank.transitFrom = ''; blank.transitTo = ''; }
   if (category === 'activity') { blank.activityDate = ''; blank.activityTime = ''; blank.address = ''; }
-  if (category === 'todo')     { blank.bookingType = 'transport'; blank.bookByDate = ''; blank.completed = false; blank.completedAt = null; }
+  if (category === 'todo')     { blank.bookingType = 'transport'; blank.activityDate = ''; blank.bookByDate = ''; blank.completed = false; blank.completedAt = null; }
 
   let fields = '';
   if (category === 'hotel')        fields = buildHotelFields(blank);
