@@ -4351,9 +4351,28 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .04em;
-  color: var(--ink-muted);
+  letter-spacing: .06em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
+.todo-group-label::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+/* Escalating urgency: red → orange → yellow → slate */
+.todo-group-overdue { color: #dc2626; }
+.todo-group-overdue::before { background: #dc2626; }
+.todo-group-now     { color: #ea580c; }
+.todo-group-now::before     { background: #ea580c; }
+.todo-group-next    { color: #ca8a04; }
+.todo-group-next::before    { background: #ca8a04; }
+.todo-group-soon    { color: var(--ink-muted); }
+.todo-group-soon::before    { background: var(--ink-muted); }
 .todo-item {
   display: flex;
   align-items: flex-start;

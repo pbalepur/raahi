@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v68';
+const APP_VERSION = 'v69';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2752,7 +2752,8 @@ function renderTodos() {
   if (!container) return;
 
   const today = new Date().toISOString().slice(0, 10);
-  const weekOut = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const day2  = new Date(Date.now() +  2 * 86400000).toISOString().slice(0, 10);
+  const day14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
   const allTodos = trip.bookings.filter(b => b.category === 'todo');
   const pending = allTodos.filter(b => !b.completed);
   const done = allTodos.filter(b => b.completed);
@@ -2760,16 +2761,18 @@ function renderTodos() {
   if (allTodos.length === 0 && !isEditMode()) { container.innerHTML = ''; return; }
 
   const groups = [
-    { key: 'overdue', label: '⚠️ Overdue', items: pending.filter(b => b.bookByDate && b.bookByDate < today) },
-    { key: 'soon',    label: '⏰ This week', items: pending.filter(b => b.bookByDate && b.bookByDate >= today && b.bookByDate <= weekOut) },
-    { key: 'later',   label: '📋 To Book',  items: pending.filter(b => !b.bookByDate || b.bookByDate > weekOut) },
+    { key: 'overdue', label: 'Overdue',  items: pending.filter(b => b.bookByDate && b.bookByDate < today) },
+    { key: 'now',     label: 'Now',      items: pending.filter(b => b.bookByDate && b.bookByDate >= today && b.bookByDate <= day2) },
+    { key: 'next',    label: 'Next',     items: pending.filter(b => b.bookByDate && b.bookByDate > day2  && b.bookByDate <= day14) },
+    { key: 'soon',    label: 'Soon',     items: pending.filter(b => !b.bookByDate || b.bookByDate > day14) },
   ].filter(g => g.items.length > 0);
 
   const renderItem = (b) => {
     const idx = trip.bookings.indexOf(b);
     const icon = TODO_TYPE_ICONS[b.bookingType] || '📋';
     const place = trip.places[b.colorKey];
-    const overdue = b.bookByDate && b.bookByDate < today;
+    const today0  = new Date().toISOString().slice(0, 10);
+    const overdue = b.bookByDate && b.bookByDate < today0;
     const actLine = b.activityDate
       ? `<div class="todo-act-line">on ${fmtBookingDate(b.activityDate)}</div>`
       : '';
@@ -2817,7 +2820,7 @@ function renderTodos() {
       <div class="todo-list">
         ${groups.length > 0 ? groups.map(g => `
           <div class="todo-group">
-            <div class="todo-group-label">${g.label}</div>
+            <div class="todo-group-label todo-group-${g.key}">${g.label}</div>
             ${g.items.map(renderItem).join('')}
           </div>`).join('') : (isEditMode() ? `<p class="todo-empty">Nothing to book yet — add your first item</p>` : '')}
         ${doneSection}
