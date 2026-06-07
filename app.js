@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v63';
+const APP_VERSION = 'v64';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -4472,6 +4472,7 @@ async function init() {
         renderPlaces(); renderRouteMap(); renderFilterBar();
         renderDayList('all'); applyDayDim(getActiveFilter());
         renderBookingFilters(); renderBookings();
+        initInbox(); // refresh pending list — accepted bookings on another device clear the inbox here
         setSyncStatus('ok', trip.meta?.savedAt);
         showToast('✓ Synced latest changes');
       } else if (isEditMode()) {
@@ -4510,6 +4511,7 @@ async function init() {
         renderPlaces(); renderRouteMap(); renderFilterBar();
         renderDayList('all'); applyDayDim(getActiveFilter());
         renderBookingFilters(); renderBookings();
+        initInbox(); // also refresh pending — another device may have accepted/rejected
         setSyncStatus('ok', trip.meta?.savedAt);
         showToast('✓ Synced latest changes');
       } else {
@@ -4566,6 +4568,7 @@ async function syncNow() {
     renderPlaces(); renderRouteMap(); renderFilterBar();
     renderDayList('all'); applyDayDim(getActiveFilter());
     renderBookingFilters(); renderBookings();
+    initInbox(); // refresh pending — another device may have accepted/rejected
     showToast('✓ Pulled latest changes');
   } else if (isEditMode()) {
     // Local is newer or equal — push immediately (not debounced)

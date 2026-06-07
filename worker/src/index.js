@@ -27,27 +27,48 @@ export default {
       let rawText   = email.text  || '';
       let htmlBody  = email.html  || '';
 
+      // Log every MIME part for diagnostics
+      const attSummary = (email.attachments || []).map(a =>
+        `${a.mimeType}(${a.disposition || 'inline'},${a.content?.byteLength ?? '?'}B)`
+      ).join(', ') || 'none';
+      console.log(`MIME parts — text:${rawText.length}B html:${htmlBody.length}B attachments:[${attSummary}]`);
+
       // iPhone Yahoo Mail (and some other mobile clients) forward emails by attaching
       // the original as a nested message/rfc822 MIME part rather than quoting it inline.
       // The outer envelope has almost no text, so we must parse the nested part separately.
       const nestedMessages = (email.attachments || []).filter(a =>
-        a.mimeType === 'message/rfc822' || a.mimeType === 'message/global'
+        a.mimeType?.startsWith('message/')
       );
       if (nestedMessages.length > 0) {
-        console.log(`Found ${nestedMessages.length} nested RFC822 attachment(s) — parsing for forwarded content`);
+        console.log(`Found ${nestedMessages.length} nested message attachment(s) — extracting forwarded content`);
         for (const att of nestedMessages) {
           try {
             const nestedParser = new PostalMime();
             const nested = await nestedParser.parse(att.content);
+            console.log(`  nested: text:${nested.text?.length ?? 0}B html:${nested.html?.length ?? 0}B subject:"${nested.subject || ''}"`);
             if (nested.text?.trim())  rawText  = (rawText + '\n\n' + nested.text).trim();
-            if (nested.html?.trim() && !rawText.trim()) htmlBody = nested.html;
+            if (nested.html?.trim())  htmlBody  = htmlBody || nested.html;
           } catch (e) {
-            console.warn('Failed to parse nested RFC822:', e.message);
+            console.warn('Failed to parse nested message attachment:', e.message);
           }
         }
       }
 
-      const emailText = rawText.trim() ? rawText : stripHtml(htmlBody) || '';
+      // Prefer whichever body version has more usable content.
+      // Hilton and many hotel chains provide rich HTML but minimal plain text;
+      // stripping the HTML often yields 3-5× more detail than rawText alone.
+      const strippedHtml = stripHtml(htmlBody);
+      let emailText;
+      if (!rawText.trim()) {
+        emailText = strippedHtml;
+        console.log(`Using HTML body (${strippedHtml.length}B) — no plain text`);
+      } else if (strippedHtml.length > rawText.length * 1.5 && strippedHtml.length > 500) {
+        emailText = strippedHtml;
+        console.log(`Using HTML body (${strippedHtml.length}B) over plain text (${rawText.length}B) — richer content`);
+      } else {
+        emailText = rawText;
+        console.log(`Using plain text body (${rawText.length}B)`);
+      }
 
       if (!emailText.trim()) {
         console.log('Empty email body — skipping');
@@ -55,7 +76,7 @@ export default {
       }
 
       // Log first 800 chars of extracted text for debugging parse failures
-      console.log(`Email body preview (${emailText.length} chars, attachments: ${email.attachments?.length || 0}):\n${emailText.slice(0, 800)}`);
+      console.log(`Email body preview:\n${emailText.slice(0, 800)}`);
 
       // Load trips for date-matching context
       const trips = await getTrips(env);
