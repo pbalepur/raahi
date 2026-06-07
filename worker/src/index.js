@@ -88,7 +88,7 @@ export default {
         return;
       }
 
-      // Store as pending
+      // Store as pending (with _debug info so we can diagnose without live logs)
       const id = crypto.randomUUID();
       await env.RAAHI_KV.put(
         `pending:${id}`,
@@ -98,6 +98,14 @@ export default {
           receivedAt: new Date().toISOString(),
           fromEmail:  message.from,
           subject,
+          _debug: {
+            mimeText:   rawText.length,
+            mimeHtml:   htmlBody.length,
+            attachments: attSummary,
+            bodyUsed:   emailText === strippedHtml ? 'html' : 'text',
+            bodyLen:    emailText.length,
+            bodyPreview: emailText.slice(0, 600),
+          },
         }),
         { expirationTtl: 60 * 60 * 24 * 30 } // auto-expire after 30 days
       );
