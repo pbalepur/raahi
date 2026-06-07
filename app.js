@@ -2773,8 +2773,8 @@ function renderTodos() {
     const place = trip.places[b.colorKey];
     const today0  = new Date().toISOString().slice(0, 10);
     const overdue = b.bookByDate && b.bookByDate < today0;
-    const actLine = b.activityDate
-      ? `<div class="todo-act-line">on ${fmtBookingDate(b.activityDate)}</div>`
+    const actDate = b.activityDate
+      ? ` <span class="todo-act-date">· on ${fmtBookingDate(b.activityDate)}</span>`
       : '';
     const dateLabel = b.bookByDate
       ? `<span class="todo-due${overdue ? ' todo-due-overdue' : ''}">Book by ${fmtBookingDate(b.bookByDate)}</span>`
@@ -2791,8 +2791,7 @@ function renderTodos() {
           ${b.completed ? '✓' : ''}
         </button>
         <div class="todo-body">
-          <div class="todo-title">${icon} ${escHtml(b.title)}</div>
-          ${actLine}
+          <div class="todo-title">${icon} ${escHtml(b.title)}${actDate}</div>
           <div class="todo-meta">${placeChip}${dateLabel}${b.notes ? `<span class="todo-notes">${escHtml(b.notes)}</span>` : ''}</div>
         </div>
         ${urlLink}
