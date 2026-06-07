@@ -4383,16 +4383,16 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
   padding: 1px 7px;
   border-radius: 999px;
 }
-.todo-activity-date {
-  font-size: 0.72rem;
-  color: var(--ink);
+.todo-act-line {
+  font-size: 0.82rem;
   font-weight: 600;
+  color: var(--ink);
+  margin: 1px 0 3px;
 }
 .todo-due {
   font-size: 0.72rem;
   color: var(--ink-muted);
 }
-.todo-due::before { content: '· '; }
 .todo-due-overdue { color: var(--vermillion); font-weight: 600; }
 .todo-notes {
   font-size: 0.72rem;

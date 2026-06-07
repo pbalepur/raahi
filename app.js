@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v66';
+const APP_VERSION = 'v67';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2769,8 +2769,8 @@ function renderTodos() {
     const icon = TODO_TYPE_ICONS[b.bookingType] || '📋';
     const place = trip.places[b.colorKey];
     const overdue = b.bookByDate && b.bookByDate < today;
-    const actLabel = b.activityDate
-      ? `<span class="todo-activity-date">${fmtBookingDate(b.activityDate)}</span>`
+    const actLine = b.activityDate
+      ? `<div class="todo-act-line">on ${fmtBookingDate(b.activityDate)}</div>`
       : '';
     const dateLabel = b.bookByDate
       ? `<span class="todo-due${overdue ? ' todo-due-overdue' : ''}">Book by ${fmtBookingDate(b.bookByDate)}</span>`
@@ -2788,7 +2788,8 @@ function renderTodos() {
         </button>
         <div class="todo-body">
           <div class="todo-title">${icon} ${escHtml(b.title)}</div>
-          <div class="todo-meta">${placeChip}${actLabel}${dateLabel}${b.notes ? `<span class="todo-notes">${escHtml(b.notes)}</span>` : ''}</div>
+          ${actLine}
+          <div class="todo-meta">${placeChip}${dateLabel}${b.notes ? `<span class="todo-notes">${escHtml(b.notes)}</span>` : ''}</div>
         </div>
         ${urlLink}
         ${isEditMode() ? `<button class="todo-edit-btn" data-idx="${idx}" title="Edit">✎</button>` : ''}
