@@ -54,21 +54,27 @@ export default {
         }
       }
 
-      // Prefer whichever body version has more usable content.
-      // Hilton and many hotel chains provide rich HTML but minimal plain text;
-      // stripping the HTML often yields 3-5× more detail than rawText alone.
+      // Detect corrupted plain text: Yahoo Mail on iPhone injects raw HTML/CSS
+      // into the text/plain MIME part of forwarded emails. Signature: the text
+      // part contains CSS class selectors like "#yiv0728448459 {margin:0}" —
+      // totally useless for booking extraction. In this case always use HTML.
+      const rawSample = rawText.slice(0, 2000);
+      const hasCssJunk = /[#.][a-zA-Z][\w-]{4,}\s*\{/.test(rawSample)  // .class{ or #id{
+                      || (rawSample.match(/\{[^}]{0,120}\}/g) || []).length > 8;
+
       const strippedHtml = stripHtml(htmlBody);
-      let emailText;
+      let emailText, bodySource;
       if (!rawText.trim()) {
-        emailText = strippedHtml;
-        console.log(`Using HTML body (${strippedHtml.length}B) — no plain text`);
+        emailText = strippedHtml; bodySource = 'html(no-text)';
+      } else if (hasCssJunk) {
+        // Plain text is corrupted with CSS — strip HTML instead
+        emailText = strippedHtml; bodySource = 'html(css-junk-in-text)';
       } else if (strippedHtml.length > rawText.length * 1.5 && strippedHtml.length > 500) {
-        emailText = strippedHtml;
-        console.log(`Using HTML body (${strippedHtml.length}B) over plain text (${rawText.length}B) — richer content`);
+        emailText = strippedHtml; bodySource = 'html(richer)';
       } else {
-        emailText = rawText;
-        console.log(`Using plain text body (${rawText.length}B)`);
+        emailText = rawText; bodySource = 'text';
       }
+      console.log(`Body: ${bodySource} (text=${rawText.length}B html=${htmlBody.length}B stripped=${strippedHtml.length}B)`);
 
       if (!emailText.trim()) {
         console.log('Empty email body — skipping');
@@ -99,11 +105,11 @@ export default {
           fromEmail:  message.from,
           subject,
           _debug: {
-            mimeText:   rawText.length,
-            mimeHtml:   htmlBody.length,
+            mimeText:    rawText.length,
+            mimeHtml:    htmlBody.length,
             attachments: attSummary,
-            bodyUsed:   emailText === strippedHtml ? 'html' : 'text',
-            bodyLen:    emailText.length,
+            bodyUsed:    bodySource,
+            bodyLen:     emailText.length,
             bodyPreview: emailText.slice(0, 600),
           },
         }),
