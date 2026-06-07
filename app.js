@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v67';
+const APP_VERSION = 'v68';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2389,6 +2389,7 @@ function deletePlaceConfirm(placeKey) {
 
 let bookingFilter = 'all';
 let bookingPlaceFilter = 'all';
+let _todoCollapsed = localStorage.getItem('raahi_todo_collapsed') === '1';
 
 function calcNights(checkIn, checkOut) {
   if (!checkIn || !checkOut) return null;
@@ -2803,10 +2804,15 @@ function renderTodos() {
     </details>` : '';
 
   container.innerHTML = `
-    <div class="todo-wrap">
-      <div class="todo-header">
+    <div class="todo-wrap${_todoCollapsed ? ' todo-collapsed' : ''}">
+      <div class="todo-header todo-header-toggle">
         <span class="todo-title-main">📋 To Book${pending.length > 0 ? ` <span class="todo-count">${pending.length}</span>` : ''}</span>
-        ${isEditMode() ? `<button class="btn btn-primary btn-xs todo-add-btn">+ Add</button>` : ''}
+        <div class="todo-header-actions">
+          ${isEditMode() ? `<button class="btn btn-primary btn-xs todo-add-btn">+ Add</button>` : ''}
+          <button class="todo-collapse-btn" title="${_todoCollapsed ? 'Expand' : 'Collapse'}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </div>
       </div>
       <div class="todo-list">
         ${groups.length > 0 ? groups.map(g => `
@@ -2851,6 +2857,21 @@ function renderTodos() {
   // Add button
   container.querySelector('.todo-add-btn')?.addEventListener('click', () => {
     openNewBookingForm('todo');
+  });
+
+  // Collapse toggle
+  container.querySelector('.todo-collapse-btn')?.addEventListener('click', () => {
+    _todoCollapsed = !_todoCollapsed;
+    localStorage.setItem('raahi_todo_collapsed', _todoCollapsed ? '1' : '0');
+    renderTodos();
+  });
+
+  // Header row also toggles (click anywhere on header except buttons)
+  container.querySelector('.todo-header-toggle')?.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return; // let buttons handle themselves
+    _todoCollapsed = !_todoCollapsed;
+    localStorage.setItem('raahi_todo_collapsed', _todoCollapsed ? '1' : '0');
+    renderTodos();
   });
 }
 

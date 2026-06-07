@@ -4298,6 +4298,28 @@ span.flatpickr-weekday { background: transparent; color: var(--ink-faint); font-
   background: var(--bg-warm);
   border-bottom: 1px solid var(--border);
 }
+.todo-header-toggle { cursor: pointer; user-select: none; }
+.todo-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.todo-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-muted);
+  padding: 2px;
+  border-radius: 4px;
+  transition: color var(--transition), transform 0.2s ease;
+}
+.todo-collapse-btn:hover { color: var(--ink); }
+.todo-collapsed .todo-collapse-btn { transform: rotate(-90deg); }
+.todo-collapsed .todo-list { display: none; }
+.todo-collapsed .todo-header { border-bottom: none; }
 .todo-title-main {
   font-size: 0.85rem;
   font-weight: 700;
