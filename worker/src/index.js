@@ -352,8 +352,9 @@ FOR ACTIVITIES / RESTAURANTS / EVENTS:
 EXTRACTION TIPS:
 - Hotel address: look for lines with building numbers (e.g. "6-36"), ward/district names (-ku, -cho, -machi), or postal codes (7xx-xxxx in Japan). Address is often near "Property Information", "Hotel Address", "Get Directions", or at the bottom before the legal footer.
 - Neighborhood: often a ward name like "Naka-ku", "Shinjuku", "Ginza" found in or near the address.
-- City: if address says "Hiroshima, Japan" the city is "Hiroshima" — do not include "Japan" or prefecture names.
+- City (CRITICAL): use the hotel's PHYSICAL location city, NOT the corporate/sender/billing address. For hotel chains (Hilton, Marriott, IHG, etc.) the hotel name often contains the city — e.g. "Hilton Hiroshima" → city = "Hiroshima", "Marriott Kyoto" → city = "Kyoto". The hotel's property address city always overrides any Tokyo/corporate office city in the email footer.
 - Do NOT leave address null if a street address appears anywhere in the email — scan the full text carefully.
+- CheckOut date: if not stated explicitly, check for a date range ("Jun 19 - Jun 20"), a nights count ("2 nights" → checkOut = checkIn + 2 days), or a "departure date" field. Never leave checkOut null if there is any way to compute it.
 
 Subject: ${subject}
 
