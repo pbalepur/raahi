@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v70';
+const APP_VERSION = 'v71';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -2389,7 +2389,7 @@ function deletePlaceConfirm(placeKey) {
 
 let bookingFilter = 'all';
 let bookingPlaceFilter = 'all';
-let _todoCollapsed = localStorage.getItem('raahi_todo_collapsed') === '1';
+let _todoCollapsed = localStorage.getItem('raahi_todo_collapsed') !== '0';
 
 function calcNights(checkIn, checkOut) {
   if (!checkIn || !checkOut) return null;
