@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v75';
+const APP_VERSION = 'v76';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -241,6 +241,59 @@ async function pushTripToWorkerNow() {
   clearTimeout(_pushTimer);
   _pushTimer = null;
   return _doPush(token);
+}
+
+// ── AI day summary ────────────────────────────────────────────────────────────
+// Generates a one-sentence natural preview for a day card by calling the worker,
+// which uses Claude Haiku. Stores in trip.days[idx].aiSummary and saves.
+// Fire-and-forget safe — errors are silently swallowed.
+async function generateDaySummary(dayIdx) {
+  const day   = trip.days[dayIdx];
+  if (!day || day.placeKey === 'home') return;
+  const place = trip.places[day.placeKey];
+  if (!place) return;
+
+  const schedule = getSchedule(dayIdx);
+  const travelEntry = !day.travel ? getTravelBookingForDate(day.date) : null;
+  const travelShape = travelEntry ? bookingToTravelShape(travelEntry) : null;
+  const effectiveTravel = day.travel || travelShape;
+  const stayBooking = getStayBookingForDate(day.date);
+  const hotel = day.stay?.hotel || stayBooking?.title || '';
+
+  const weekday = new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+
+  try {
+    const res = await fetch(`${WORKER_URL}/api/trip/${TRIP_ID}/summarize-day`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        date:          day.date,
+        weekday,
+        place:         place.name,
+        hotel:         hotel || '',
+        travel:        effectiveTravel ? `${ITEM_TYPES[effectiveTravel.mode]?.label || ''} — ${effectiveTravel.summary}` : '',
+        scheduleItems: schedule.map(i => ({ title: i.title, time: i.time, ampm: i.ampm })),
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!res.ok) return;
+    const { summary } = await res.json();
+    if (summary) {
+      day.aiSummary = summary;
+      saveTrip();
+      renderDayList(getActiveFilter());
+    }
+  } catch { /* silently ignore — fallback to count display */ }
+}
+
+// Generate summaries for all days that don't have one yet (background, non-blocking).
+function backfillDaySummaries() {
+  trip.days.forEach((day, idx) => {
+    if (!day.aiSummary && day.placeKey !== 'home') {
+      // Stagger requests to avoid hammering the API
+      setTimeout(() => generateDaySummary(idx), idx * 800);
+    }
+  });
 }
 
 // Fetch full trip data from Cloudflare KV.
@@ -1361,7 +1414,7 @@ function renderDayList(filter = 'all') {
             </div>
             <div class="day-preview">
               ${effectiveTravel ? `<span class="day-travel-badge">${ITEM_TYPES[effectiveTravel.mode]?.icon || '🚀'} ${effectiveTravel.summary}</span>` : ''}
-              <span class="preview-text">${totalCount} item${totalCount !== 1 ? 's' : ''} · ${hotelName}</span>
+              <span class="preview-text">${day.aiSummary || `${totalCount} item${totalCount !== 1 ? 's' : ''} · ${hotelName}`}</span>
             </div>
           </div>
         </div>
@@ -1877,6 +1930,7 @@ function attachPanelHandlers(dayIdx) {
       openDayPanel(idx);
       renderDayList(getActiveFilter());
       showToast('Time saved');
+      generateDaySummary(idx);
     });
   });
 
@@ -3329,6 +3383,12 @@ function renderInbox(items) {
         trip.bookings.push(newBooking);
         if (newBooking.category === 'hotel') syncHotelActivities(newBooking);
         saveTrip();
+        // Regenerate AI summary for the affected day(s)
+        const affectedDate = newBooking.activityDate || newBooking.checkIn || newBooking.transitDate;
+        if (affectedDate) {
+          const affectedIdx = trip.days.findIndex(d => d.date === affectedDate);
+          if (affectedIdx >= 0) generateDaySummary(affectedIdx);
+        }
         pendingBookings = pendingBookings.filter(b => b.id !== id);
         renderInbox(pendingBookings);
         renderBookings();
@@ -4922,6 +4982,7 @@ async function init() {
   // Runs silently after the page is live — no await, doesn't block anything.
   backfillPlaceImages();
   backfillPlaceCoords();
+  if (isEditMode()) backfillDaySummaries();
 
   // Phase 2 — background KV check (stale-while-revalidate)
   // Pull if remote is newer; push (with fresh timestamp) if local is newer and we're in edit mode.
