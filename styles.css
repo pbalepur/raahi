@@ -823,22 +823,61 @@ img { display: block; max-width: 100%; }
   min-width: 0;
 }
 
-.day-summary {
+/* ── Day card inner layout ───────────────────────────────────── */
+.day-content {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 18px;
-  min-height: 72px;
-}
-
-.day-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 18px;
   min-width: 0;
   flex: 1;
 }
+
+/* Row 1: title + place pill */
+.day-row1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Row 2: travel badge + hotel tag */
+.day-row2 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 20px;
+}
+
+.day-hotel-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.72rem;
+  color: var(--ink-muted);
+  background: var(--bg-section);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Row 3: AI summary */
+.day-ai-summary {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  line-height: 1.45;
+}
+.day-ai-pending {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* Legacy selectors — keep for any older references */
+.day-summary { display: contents; }
+.day-header  { display: contents; }
 
 .day-title {
   margin: 0;
@@ -864,18 +903,8 @@ img { display: block; max-width: 100%; }
   line-height: 1.4;
 }
 
-.day-preview {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.preview-text {
-  font-size: 0.78rem;
-  color: var(--ink-muted);
-  white-space: nowrap;
-}
+.day-preview  { display: none; } /* replaced by day-row2 */
+.preview-text { display: none; }
 
 .expand-icon {
   display: flex;

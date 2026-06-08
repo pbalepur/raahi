@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v76';
+const APP_VERSION = 'v77';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -1399,6 +1399,11 @@ function renderDayList(filter = 'all') {
     const travelShape   = travelEntry ? bookingToTravelShape(travelEntry) : null;
     const effectiveTravel = day.travel || travelShape;
 
+    const hotelTag = (hotelName && hotelName !== 'In transit')
+      ? `<span class="day-hotel-tag">🏨 ${hotelName}</span>` : '';
+    const travelTag = effectiveTravel
+      ? `<span class="day-travel-badge">${ITEM_TYPES[effectiveTravel.mode]?.icon || '🚀'} ${effectiveTravel.summary}</span>` : '';
+
     return `
       <article class="day-card" data-idx="${idx}" data-place="${day.placeKey}" style="--city-color:${place.color}; --city-bg:${place.bg}">
         <div class="day-rail">
@@ -1407,16 +1412,16 @@ function renderDayList(filter = 'all') {
           <span class="day-month">${fmtMonth.format(d)}</span>
         </div>
         <div class="day-content">
-          <div class="day-summary">
-            <div class="day-header">
-              <h3 class="day-title">${day.title}</h3>
-              <span class="place-pill" style="background:${place.bg}; color:${place.color}">${place.emoji ? place.emoji + ' ' : ''}${place.name}</span>
-            </div>
-            <div class="day-preview">
-              ${effectiveTravel ? `<span class="day-travel-badge">${ITEM_TYPES[effectiveTravel.mode]?.icon || '🚀'} ${effectiveTravel.summary}</span>` : ''}
-              <span class="preview-text">${day.aiSummary || `${totalCount} item${totalCount !== 1 ? 's' : ''} · ${hotelName}`}</span>
-            </div>
+          <div class="day-row1">
+            <h3 class="day-title">${day.title}</h3>
+            <span class="place-pill" style="background:${place.bg}; color:${place.color}">${place.emoji ? place.emoji + ' ' : ''}${place.name}</span>
           </div>
+          <div class="day-row2">
+            ${travelTag}${hotelTag}
+          </div>
+          ${day.aiSummary
+            ? `<p class="day-ai-summary">${day.aiSummary}</p>`
+            : `<p class="day-ai-summary day-ai-pending">${totalCount} item${totalCount !== 1 ? 's' : ''} scheduled</p>`}
         </div>
       </article>`;
   }).join('');
