@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v72';
+const APP_VERSION = 'v73';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -18,6 +18,8 @@ const ITEM_TYPES = {
   shopping:   { icon: '🛍️',  label: 'Shopping',   color: '#db2777' },
   event:      { icon: '🎵',  label: 'Event',      color: '#7c3aed' },
   buffer:     { icon: '⏳',  label: 'Buffer',     color: '#78716c' },
+  checkin:    { icon: '🔑',  label: 'Check-in',   color: '#8b5cf6' },
+  checkout:   { icon: '🧳',  label: 'Check-out',  color: '#64748b' },
 };
 
 // ── SVG Icons ──
@@ -277,11 +279,33 @@ function saveEdits() {
 function getSchedule(dayIdx) {
   const day = trip.days[dayIdx];
   const edits = userEdits[dayIdx];
-  if (!edits) return [...(day.schedule || [])];
-  const deleted = new Set(edits.deletedSchedule || []);
-  const base = (day.schedule || []).filter(i => !deleted.has(i.id));
-  const added = (edits.addedSchedule || []);
-  return [...base, ...added];
+  const deleted = edits ? new Set(edits.deletedSchedule || []) : new Set();
+  const base  = (day.schedule || []).filter(i => !deleted.has(i.id));
+  const added = edits ? (edits.addedSchedule || []) : [];
+  return [...base, ...added, ...hotelActivitiesForDay(day.date)];
+}
+
+// Returns virtual schedule items for hotel check-in / check-out bookings on `date`.
+// These are backed by trip.bookings (not userEdits) so they stay in sync with the
+// hotel booking automatically. fromBookingId lets handlers distinguish them.
+function hotelActivitiesForDay(date) {
+  if (!date || !trip.bookings) return [];
+  return trip.bookings
+    .filter(b => b.category === 'activity' &&
+                 (b.checkType === 'in' || b.checkType === 'out') &&
+                 b.activityDate === date)
+    .map(b => ({
+      id:            b.id,
+      type:          b.checkType === 'in' ? 'checkin' : 'checkout',
+      title:         b.title,
+      time:          b.activityTime || (b.checkType === 'in' ? '15:00' : '12:00'),
+      ampm:          null,
+      status:        'confirmed',
+      notes:         b.notes         || '',
+      confirmation:  b.confirmation  || '',
+      url:           b.url           || '',
+      fromBookingId: b.id,
+    }));
 }
 
 function getWishlist(dayIdx) {
@@ -1644,6 +1668,42 @@ function renderPanelItem(item, dayIdx, isSchedule) {
     ? `<a href="${item.url}" target="_blank" rel="noreferrer" class="pi-ext-link" onclick="event.stopPropagation()">${ICONS.arrow}</a>`
     : '';
 
+  // ── Hotel check-in / check-out: lean variant backed by trip.bookings ────────
+  if (item.fromBookingId) {
+    const bookingIdx = trip.bookings.findIndex(b => b.id === item.fromBookingId);
+    const editBtn = isEditMode() && bookingIdx >= 0
+      ? `<button class="pi-edit-linked btn btn-sm btn-ghost" data-idx="${bookingIdx}"
+           title="Edit booking" onclick="openBookingEditor(${bookingIdx});event.stopPropagation()">✎</button>`
+      : '';
+    return `
+      <div class="panel-item pi-confirmed pi-linked" data-id="${item.id}" data-idx="${dayIdx}" data-schedule="true">
+        <div class="pi-main">
+          <span class="pi-icon" style="--type-color:${typeInfo.color}">${typeInfo.icon}</span>
+          <div class="pi-body">
+            ${timeDisplay}
+            <span class="pi-title">${item.title}</span>
+            ${item.confirmation ? `<span class="pi-conf">Conf: ${item.confirmation}</span>` : ''}
+          </div>
+          <div class="pi-actions">
+            ${urlLink}
+            ${editBtn}
+          </div>
+        </div>
+        ${isEditMode() ? `
+        <div class="pi-detail" style="display:none">
+          <div class="pi-detail-row">
+            <label>Time</label>
+            <input type="time" class="pi-time-input" value="${item.time || ''}" data-id="${item.id}"
+              autocomplete="off">
+          </div>
+          <div class="pi-detail-actions">
+            <button class="pi-save-time btn btn-sm btn-primary" data-id="${item.id}" data-idx="${dayIdx}">Save time</button>
+          </div>
+        </div>` : ''}
+      </div>`;
+  }
+
+  // ── Standard schedule / wishlist item ────────────────────────────────────
   return `
     <div class="panel-item ${statusClass}" data-id="${item.id}" data-idx="${dayIdx}" data-schedule="${isSchedule}">
       <div class="pi-main">
@@ -1763,6 +1823,17 @@ function attachPanelHandlers(dayIdx) {
       const ampmSelect = panelItem.querySelector('.pi-ampm-select');
       const time  = timeInput?.value  || null;
       const ampm  = (!time && ampmSelect?.value) ? ampmSelect.value : null;
+
+      // Hotel check-in/out: save time back to the underlying booking
+      const booking = trip.bookings.find(b => b.id === itemId &&
+        b.category === 'activity' && (b.checkType === 'in' || b.checkType === 'out'));
+      if (booking) {
+        booking.activityTime = time || booking.activityTime;
+        saveTrip();
+        openDayPanel(idx);
+        showToast('Time saved');
+        return;
+      }
 
       const items = getSchedule(idx);
       const item  = items.find(i => i.id === itemId);
