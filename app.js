@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v78';
+const APP_VERSION = 'v79';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -1818,6 +1818,11 @@ function renderPanelItem(item, dayIdx, isSchedule) {
       </div>
       <div class="pi-detail" style="display:none">
         <div class="pi-detail-row">
+          <label>Name</label>
+          <input type="text" class="pi-name-input" value="${escHtml(item.title)}" data-id="${item.id}"
+            autocomplete="off" placeholder="Activity name">
+        </div>
+        <div class="pi-detail-row">
           <label>Time</label>
           <input type="time" class="pi-time-input" value="${item.time || ''}" data-id="${item.id}"
             autocomplete="off" title="Specific time — clears the period selector">
@@ -1936,12 +1941,15 @@ function attachPanelHandlers(dayIdx) {
       const item  = items.find(i => i.id === itemId);
       if (!item) return;
 
+      const nameInput = panelItem.querySelector('.pi-name-input');
+      const newName = nameInput?.value?.trim();
+      if (newName) item.title = newName;
       item.time = time;
       item.ampm = ampm;
       saveEdits();
       openDayPanel(idx);
       renderDayList(getActiveFilter());
-      showToast('Time saved');
+      showToast('Saved');
       generateDaySummary(idx);
     });
   });
