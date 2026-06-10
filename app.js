@@ -3,7 +3,7 @@
    Data-driven · Leaflet map · Slide-in panel · Export/Import
    ============================================================ */
 
-const APP_VERSION = 'v77';
+const APP_VERSION = 'v78';
 
 // ── Activity type config (UI only — not trip data) ──
 const ITEM_TYPES = {
@@ -56,6 +56,13 @@ const fmtMonth = new Intl.DateTimeFormat('en-US', { month: 'short' });
 const fmtWkday = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
 
 function parseDate(str) { return new Date(str + 'T12:00:00'); }
+
+// Returns today's date as YYYY-MM-DD in JST (UTC+9).
+// The trip is in Japan — this ensures the "current day" marker and urgency
+// calculations are correct regardless of where the viewer's device is located.
+function todayJST() {
+  return new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+}
 
 function mapsUrl(query) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query + ', Japan')}`;
@@ -1669,7 +1676,7 @@ function openDayPanel(dayIdx) {
         ${dayTodos.map(b => {
           const idx = trip.bookings.indexOf(b);
           const icon = TODO_TYPE_ICONS[b.bookingType] || '📋';
-          const today2 = new Date().toISOString().slice(0, 10);
+          const today2 = todayJST();
           const overdue = b.bookByDate && b.bookByDate < today2;
           return `
             <div class="logistics-chip${overdue ? ' logistics-overdue' : ''}">
@@ -2915,9 +2922,9 @@ function renderTodos() {
   const container = $('#todo-section');
   if (!container) return;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const day2  = new Date(Date.now() +  2 * 86400000).toISOString().slice(0, 10);
-  const day14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+  const today = todayJST();
+  const day2  = new Date(Date.now() + (9 + 2*24) * 3600000).toISOString().slice(0, 10);
+  const day14 = new Date(Date.now() + (9 + 14*24) * 3600000).toISOString().slice(0, 10);
   const allTodos = trip.bookings.filter(b => b.category === 'todo');
   const pending = allTodos.filter(b => !b.completed);
   const done = allTodos.filter(b => b.completed);
@@ -2935,7 +2942,7 @@ function renderTodos() {
     const idx = trip.bookings.indexOf(b);
     const icon = TODO_TYPE_ICONS[b.bookingType] || '📋';
     const place = trip.places[b.colorKey];
-    const today0  = new Date().toISOString().slice(0, 10);
+    const today0  = todayJST();
     const overdue = b.bookByDate && b.bookByDate < today0;
     const actDate = b.activityDate
       ? ` <span class="todo-act-date">· on ${fmtBookingDate(b.activityDate)}</span>`
@@ -3052,7 +3059,7 @@ function scrollToTodo(idx) {
 }
 
 function buildTodoFields(b) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayJST();
   const typeOpt = (val, label) =>
     `<option value="${val}"${(b.bookingType || 'transport') === val ? ' selected' : ''}>${label}</option>`;
   return `
@@ -4142,24 +4149,19 @@ function escHtml(str) {
 // ===================================================================
 
 function getTripStatus() {
-  const now = new Date();
-  const tripStart = new Date(trip.meta.startDate + 'T00:00:00-07:00');
-  const tripEnd = new Date(trip.meta.endDate + 'T00:00:00-07:00');
-  tripEnd.setDate(tripEnd.getDate() + 1);
+  const today = todayJST(); // current date in Japan, e.g. '2026-06-10'
 
-  if (now < tripStart) {
-    return { phase: 'before', daysUntil: Math.ceil((tripStart - now) / 86400000) };
+  if (today < trip.meta.startDate) {
+    // Days until trip — compute against JST midnight of start date
+    const startMs = new Date(trip.meta.startDate + 'T00:00:00+09:00').getTime();
+    return { phase: 'before', daysUntil: Math.ceil((startMs - Date.now()) / 86400000) };
   }
-  if (now >= tripEnd) {
+  if (today > trip.meta.endDate) {
     return { phase: 'after' };
   }
 
-  const dayIndex = trip.days.findIndex(d => {
-    const dayDate = parseDate(d.date);
-    const nextDay = new Date(dayDate); nextDay.setDate(nextDay.getDate() + 1);
-    return now >= dayDate && now < nextDay;
-  });
-
+  // Simple string comparison — no timezone math needed
+  const dayIndex = trip.days.findIndex(d => d.date === today);
   return { phase: 'during', dayIndex: dayIndex >= 0 ? dayIndex : 0, dayNum: dayIndex >= 0 ? dayIndex + 1 : 1 };
 }
 
@@ -4185,8 +4187,8 @@ function renderCountdown() {
     const day = trip.days[todayIdx];
     const place = trip.places[day.placeKey];
     const schedule = getSchedule(todayIdx);
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const jstNow = new Date(Date.now() + 9 * 3600000);
+    const nowMinutes = jstNow.getUTCHours() * 60 + jstNow.getUTCMinutes();
     let nextItem = null;
     for (const item of schedule) {
       if (item.time) {
